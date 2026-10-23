@@ -1,11 +1,11 @@
-HERMENEUS — pacchetto per la pubblicazione (versione 22a2a880f1)
+HERMENEUS — pacchetto per la pubblicazione (versione 87795dfdde)
 
 Contenuto
   index.html             l'applicazione completa (caratteri incorporati)
   manifest.webmanifest   dati per l'installazione su telefono
   sw.js                  service worker: rende l'app utilizzabile senza rete
   icons/                 icone dell'app
-  LICENZE-CARATTERI.txt  licenze SIL OFL 1.1 di Gentium Plus, GFS Didot, Fira Sans
+  LICENZE-CARATTERI.txt  licenze SIL OFL 1.1 di Gentium Plus, GFS Didot, Brygada 1918, Rubik
 
 Pubblicazione
   Carica l'intera cartella su un hosting statico con HTTPS (per esempio GitHub Pages,

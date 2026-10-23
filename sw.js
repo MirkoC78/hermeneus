@@ -1,5 +1,5 @@
-/* Hermeneus — service worker: tutto in cache per l'uso offline. Versione 22a2a880f1. */
-const CACHE = 'hermeneus-22a2a880f1';
+/* Hermeneus — service worker: tutto in cache per l'uso offline. Versione 87795dfdde. */
+const CACHE = 'hermeneus-87795dfdde';
 const ASSETS = ["./","index.html","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","icons/apple-touch-icon.png","icons/favicon-32.png"];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
