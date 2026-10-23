@@ -1,0 +1,12 @@
+const fs = require('fs');
+const f = process.argv[2];
+let s = fs.readFileSync(f, 'utf8');
+const R = (a, b) => { if (!s.includes(a)) throw new Error('manca: ' + a.slice(0, 60)); s = s.split(a).join(b); };
+R("  h += answerArea(it);\n  return h;", "  h += `<div id=\"ansWrap\">${answerArea(it)}</div>`;\n  return h;");
+const i = s.indexOf('  toggleInput: () => {');
+const j = s.indexOf('\n', i);
+s = s.slice(0, i) + "  toggleInput: (el) => { const c = SES.cur; if (c.answered) return; c.inputMode = c.inputMode === 'tiles' ? 'keys' : 'tiles'; c.chosen = []; $('#ansWrap').innerHTML = answerArea(c.it); el.innerHTML = c.inputMode === 'tiles' ? I.keys + 'Scrivi' : I.tiles + 'Tessere'; refreshAnswer(); const t = $('#typed'); if (t) t.focus({ preventScroll: true }); }," + s.slice(j);
+R("function rerenderAnswer() { /* il riquadro di risposta viene ricreato da renderItem */ refreshAnswer(); }\n", '');
+R("href=\"https://it.wiktionary.org/wiki/${encodeURIComponent(G.stripAccents(e.lemma) === e.lemma ? e.lemma : e.lemma)}\"", "href=\"https://it.wiktionary.org/wiki/${encodeURIComponent(e.lemma)}\"");
+fs.writeFileSync(f, s);
+console.log('ok');
