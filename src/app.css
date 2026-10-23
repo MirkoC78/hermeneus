@@ -479,3 +479,27 @@ canvas.confetti { position: fixed; inset: 0; z-index: 95; pointer-events: none; 
 .tr-card.compact b { font-size: 1.1rem; margin-top: 4px; }
 .tr-quick { margin: 8px 0 4px; }
 .tr-quick .section-title { margin-top: 14px; }
+/* difficoltà delle traduzioni */
+.levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 16px; background: var(--paper-2); }
+.levels button { min-height: 42px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); font-weight: 600; font-size: .86rem; padding: 4px 2px; }
+.levels button[aria-pressed="true"] { background: var(--surface); color: var(--pri); box-shadow: 0 1px 2px rgba(43, 36, 64, .12), 0 0 0 2px var(--pri); }
+.level-desc { margin: 8px 2px 12px; min-height: 2.6em; }
+/* salvataggio dei progressi */
+.savecard { display: flex; flex-direction: column; gap: 12px; }
+.save-head { display: flex; gap: 12px; align-items: flex-start; }
+.save-head b { display: block; font-weight: 600; }
+.save-head span { display: block; color: var(--muted); font-size: .85rem; }
+.save-dot { flex: none; width: 34px; height: 34px; border-radius: 50%; display: inline-flex !important; align-items: center; justify-content: center; background: var(--good-soft); color: var(--good); }
+.save-dot.bad { background: var(--bad-soft); color: var(--bad); }
+.save-dot svg { width: 18px; height: 18px; }
+.save-tip { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--star-soft); color: var(--ink); }
+.save-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.save-actions .btn.block { flex: 1 1 200px; }
+.save-actions .btn.ghost { flex: 0 1 auto; }
+.linkbtn { background: none; border: 0; padding: 4px 0; color: var(--pri); font-weight: 600; font-size: .9rem; text-align: left; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+.savecode { margin: 12px 0; padding: 16px; border-radius: 16px; background: var(--pri-soft); border: 2px dashed color-mix(in srgb, var(--pri) 45%, transparent); font: 700 1.15rem/1.6 var(--f-ui); letter-spacing: .08em; word-spacing: .2em; color: var(--ink); overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; font-variant-numeric: tabular-nums; }
+.codein { font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-top: 8px; }
+#codeMsg.bad { color: var(--bad); font-weight: 600; }
+hr.sep { border: 0; border-top: 2px solid var(--line); margin: 18px 0; }
+.save-nudge { text-align: left; border-color: color-mix(in srgb, var(--star) 60%, var(--line)); background: var(--star-soft); }
+.done-screen .card.save-nudge { align-items: flex-start; }

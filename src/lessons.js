@@ -59,22 +59,26 @@
     if (unknown.length > maxNew) return null;
     return { unknown };
   }
+  // parole della frase (senza punteggiatura): la misura della difficoltà
+  const wordCount = (s) => tokensOf(s).filter((t) => t && !t.p).length;
+  const lengthOK = (s, sc) => { const n = wordCount(s); return n >= (sc.minWords || 0) && n <= (sc.maxWords || 99); };
   function pickSentence(sc, avoid) {
     const { T, vocab, focus } = sc;
     const cands = [];
     for (const s of BANK) {
-      if (avoid.has(s.id)) continue;
+      if (avoid.has(s.id) || !lengthOK(s, sc)) continue;
       const fit = sentenceFits(s, T, vocab, sc.maxNew ?? 1);
       if (fit) cands.push({ s, w: (s.tags.includes(focus) ? 4 : 1) + (fit.unknown.length ? 0 : 1), unknown: fit.unknown });
     }
     const useGen = sc.gen !== false && (!cands.length || rand() < (sc.genShare ?? 0.5));
     if (useGen) {
-      for (let k = 0; k < 3; k++) {
+      for (let k = 0; k < (sc.minWords || sc.maxWords ? 10 : 3); k++) {
         const g = GN.generate([...T], focus, { lex: vocab || null, tenses: sc.tenses, simple: sc.simple, phrase: !T.has('pres') });
-        if (g && !avoid.has(g.id)) { g.tokens = g.tokens.filter(Boolean); return { s: g, unknown: [] }; }
+        if (g && !avoid.has(g.id)) { g.tokens = g.tokens.filter(Boolean); if (lengthOK(g, sc)) return { s: g, unknown: [] }; }
       }
     }
-    if (!cands.length) return null;
+    // se il livello chiede frasi più lunghe di quelle possibili con gli argomenti aperti, si allenta il limite un passo alla volta
+    if (!cands.length) return sc.minWords ? pickSentence(Object.assign({}, sc, { minWords: sc.minWords - 1 }), avoid) : null;
     const tot = cands.reduce((a, c) => a + c.w, 0);
     let r = rand() * tot;
     for (const c of cands) { r -= c.w; if (r <= 0) return c; }
@@ -313,7 +317,9 @@
     const vocab = o.wide ? null : vocabForTopics(T);
     const focus = o.focus || [...T].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0];
     const unit = UNIT_BY_ID[focus];
-    const sc = { T, vocab, focus, lemmas: null, keys: null, genShare: o.genShare ?? 0.5, maxNew: o.wide ? 3 : 1, gen: o.gen !== false };
+    // o.level: { minWords, maxWords, simple } per versione e retroversione
+    const lv = o.level || {};
+    const sc = { T, vocab, focus, lemmas: null, keys: null, genShare: o.genShare ?? 0.5, maxNew: o.wide ? 3 : 1, gen: o.gen !== false, minWords: lv.minWords || 0, maxWords: lv.maxWords || 0, simple: !!lv.simple };
     const mix = o.mix || ['frase', 'analizza', 'frase', 'abbina', 'frase', 'scrivi', 'frase', 'completa', 'frase', 'analizza'];
     const used = new Set(o.avoid || []);
     const items = [];
@@ -331,6 +337,6 @@
     return items;
   }
 
-  root.HermLessons = { FLAT, BY_ID, UNIT_BY_ID, init, topicsUpTo, vocabUpTo, vocabForTopics, sentenceFits, buildLesson, buildPractice, scopeOf, entryOf, LETTERS, known };
+  root.HermLessons = { wordCount, FLAT, BY_ID, UNIT_BY_ID, init, topicsUpTo, vocabUpTo, vocabForTopics, sentenceFits, buildLesson, buildPractice, scopeOf, entryOf, LETTERS, known };
   if (typeof module !== 'undefined') module.exports = root.HermLessons;
 })(typeof window !== 'undefined' ? window : globalThis);

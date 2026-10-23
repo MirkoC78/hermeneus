@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Hermeneus">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="format-detection" content="telephone=no">
-<meta name="generator" content="Hermeneus b69c78a1e3">
+<meta name="generator" content="Hermeneus efb9d65e8b">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -511,6 +511,30 @@ canvas.confetti { position: fixed; inset: 0; z-index: 95; pointer-events: none; 
 .tr-card.compact b { font-size: 1.1rem; margin-top: 4px; }
 .tr-quick { margin: 8px 0 4px; }
 .tr-quick .section-title { margin-top: 14px; }
+/* difficoltà delle traduzioni */
+.levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 16px; background: var(--paper-2); }
+.levels button { min-height: 42px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); font-weight: 600; font-size: .86rem; padding: 4px 2px; }
+.levels button[aria-pressed="true"] { background: var(--surface); color: var(--pri); box-shadow: 0 1px 2px rgba(43, 36, 64, .12), 0 0 0 2px var(--pri); }
+.level-desc { margin: 8px 2px 12px; min-height: 2.6em; }
+/* salvataggio dei progressi */
+.savecard { display: flex; flex-direction: column; gap: 12px; }
+.save-head { display: flex; gap: 12px; align-items: flex-start; }
+.save-head b { display: block; font-weight: 600; }
+.save-head span { display: block; color: var(--muted); font-size: .85rem; }
+.save-dot { flex: none; width: 34px; height: 34px; border-radius: 50%; display: inline-flex !important; align-items: center; justify-content: center; background: var(--good-soft); color: var(--good); }
+.save-dot.bad { background: var(--bad-soft); color: var(--bad); }
+.save-dot svg { width: 18px; height: 18px; }
+.save-tip { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--star-soft); color: var(--ink); }
+.save-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.save-actions .btn.block { flex: 1 1 200px; }
+.save-actions .btn.ghost { flex: 0 1 auto; }
+.linkbtn { background: none; border: 0; padding: 4px 0; color: var(--pri); font-weight: 600; font-size: .9rem; text-align: left; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+.savecode { margin: 12px 0; padding: 16px; border-radius: 16px; background: var(--pri-soft); border: 2px dashed color-mix(in srgb, var(--pri) 45%, transparent); font: 700 1.15rem/1.6 var(--f-ui); letter-spacing: .08em; word-spacing: .2em; color: var(--ink); overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; font-variant-numeric: tabular-nums; }
+.codein { font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-top: 8px; }
+#codeMsg.bad { color: var(--bad); font-weight: 600; }
+hr.sep { border: 0; border-top: 2px solid var(--line); margin: 18px 0; }
+.save-nudge { text-align: left; border-color: color-mix(in srgb, var(--star) 60%, var(--line)); background: var(--star-soft); }
+.done-screen .card.save-nudge { align-items: flex-start; }
 
 </style>
 </head>
@@ -4374,22 +4398,26 @@ if (typeof module !== 'undefined') module.exports = root.HERM_COURSE;
     if (unknown.length > maxNew) return null;
     return { unknown };
   }
+  // parole della frase (senza punteggiatura): la misura della difficoltà
+  const wordCount = (s) => tokensOf(s).filter((t) => t && !t.p).length;
+  const lengthOK = (s, sc) => { const n = wordCount(s); return n >= (sc.minWords || 0) && n <= (sc.maxWords || 99); };
   function pickSentence(sc, avoid) {
     const { T, vocab, focus } = sc;
     const cands = [];
     for (const s of BANK) {
-      if (avoid.has(s.id)) continue;
+      if (avoid.has(s.id) || !lengthOK(s, sc)) continue;
       const fit = sentenceFits(s, T, vocab, sc.maxNew ?? 1);
       if (fit) cands.push({ s, w: (s.tags.includes(focus) ? 4 : 1) + (fit.unknown.length ? 0 : 1), unknown: fit.unknown });
     }
     const useGen = sc.gen !== false && (!cands.length || rand() < (sc.genShare ?? 0.5));
     if (useGen) {
-      for (let k = 0; k < 3; k++) {
+      for (let k = 0; k < (sc.minWords || sc.maxWords ? 10 : 3); k++) {
         const g = GN.generate([...T], focus, { lex: vocab || null, tenses: sc.tenses, simple: sc.simple, phrase: !T.has('pres') });
-        if (g && !avoid.has(g.id)) { g.tokens = g.tokens.filter(Boolean); return { s: g, unknown: [] }; }
+        if (g && !avoid.has(g.id)) { g.tokens = g.tokens.filter(Boolean); if (lengthOK(g, sc)) return { s: g, unknown: [] }; }
       }
     }
-    if (!cands.length) return null;
+    // se il livello chiede frasi più lunghe di quelle possibili con gli argomenti aperti, si allenta il limite un passo alla volta
+    if (!cands.length) return sc.minWords ? pickSentence(Object.assign({}, sc, { minWords: sc.minWords - 1 }), avoid) : null;
     const tot = cands.reduce((a, c) => a + c.w, 0);
     let r = rand() * tot;
     for (const c of cands) { r -= c.w; if (r <= 0) return c; }
@@ -4628,7 +4656,9 @@ if (typeof module !== 'undefined') module.exports = root.HERM_COURSE;
     const vocab = o.wide ? null : vocabForTopics(T);
     const focus = o.focus || [...T].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0];
     const unit = UNIT_BY_ID[focus];
-    const sc = { T, vocab, focus, lemmas: null, keys: null, genShare: o.genShare ?? 0.5, maxNew: o.wide ? 3 : 1, gen: o.gen !== false };
+    // o.level: { minWords, maxWords, simple } per versione e retroversione
+    const lv = o.level || {};
+    const sc = { T, vocab, focus, lemmas: null, keys: null, genShare: o.genShare ?? 0.5, maxNew: o.wide ? 3 : 1, gen: o.gen !== false, minWords: lv.minWords || 0, maxWords: lv.maxWords || 0, simple: !!lv.simple };
     const mix = o.mix || ['frase', 'analizza', 'frase', 'abbina', 'frase', 'scrivi', 'frase', 'completa', 'frase', 'analizza'];
     const used = new Set(o.avoid || []);
     const items = [];
@@ -4646,7 +4676,7 @@ if (typeof module !== 'undefined') module.exports = root.HERM_COURSE;
     return items;
   }
 
-  root.HermLessons = { FLAT, BY_ID, UNIT_BY_ID, init, topicsUpTo, vocabUpTo, vocabForTopics, sentenceFits, buildLesson, buildPractice, scopeOf, entryOf, LETTERS, known };
+  root.HermLessons = { wordCount, FLAT, BY_ID, UNIT_BY_ID, init, topicsUpTo, vocabUpTo, vocabForTopics, sentenceFits, buildLesson, buildPractice, scopeOf, entryOf, LETTERS, known };
   if (typeof module !== 'undefined') module.exports = root.HermLessons;
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -5288,6 +5318,100 @@ root.HERM_BANK = { BANK, METHOD, SENTENTIAE, RANKS };
 if (typeof module !== 'undefined') module.exports = root.HERM_BANK;
 })(typeof window !== 'undefined' ? window : globalThis);
 
+;
+/* ---- src/savecode.js ---- */
+/* HERMENEUS — codice di salvataggio: i progressi essenziali in una stringa da copiare su un altro dispositivo,
+   come le password dei vecchi videogiochi. Nessun server: il codice resta allo studente.
+   Contiene percorso e stelle, punti, serie, insegne, impostazioni, nome e statistiche principali;
+   ripasso degli errori e lessico restano solo nella copia completa su file.
+   Formato: bit impacchettati, controllo a 16 bit, base32 di Crockford in gruppi di 4 (ignora trattini, spazi, I/L/O). */
+(function (root) {
+  'use strict';
+  const ALPHA = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+  const NAME_CH = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789àèéìòù'-.";
+  const GOALS = [30, 50, 80, 120];
+  const LEVELS = ['facile', 'media', 'difficile', 'esperto'];
+  const THEMES = ['auto', 'light', 'dark'];
+  const EPOCH = Date.UTC(2025, 0, 1);
+  const VERSION = 1;
+
+  function Writer() { const bits = []; return { put(v, n) { v = Math.max(0, Math.min(Math.floor(v) || 0, 2 ** n - 1)); for (let i = n - 1; i >= 0; i--) bits.push(Math.floor(v / 2 ** i) % 2); }, bits }; }
+  function Reader(bits) { let p = 0; return { get(n) { let v = 0; for (let i = 0; i < n; i++) { if (p >= bits.length) throw new Error('codice troppo corto'); v = v * 2 + bits[p++]; } return v; }, left: () => bits.length - p }; }
+  // controllo: somma di Fletcher a 16 bit sui gruppi di 8 bit
+  function check(bits) { let a = 1, b = 0; for (let i = 0; i < bits.length; i += 8) { let byte = 0; for (let j = 0; j < 8; j++) byte = byte * 2 + (bits[i + j] || 0); a = (a + byte) % 255; b = (b + a) % 255; } return a * 256 + b; }
+  const dayNum = (k) => { if (!k) return 0; const [y, m, d] = k.split('-').map(Number); return Math.round((Date.UTC(y, m - 1, d) - EPOCH) / 864e5) + 1; };
+  const dayKey = (n) => { if (!n) return null; const d = new Date(EPOCH + (n - 1) * 864e5); return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0'); };
+
+  // S: stato dell'app; lessonIds: id delle lezioni in ordine; badgeIds: id delle insegne in ordine
+  function encode(S, lessonIds, badgeIds) {
+    const w = Writer();
+    const c = S.course || {}, st = S.stats || {}, set = S.settings || {}, pr = S.prac || {};
+    const unlocked = Math.min(c.unlocked || 0, lessonIds.length - 1);
+    w.put(VERSION, 4);
+    // stelle fino all'ultima lezione che ne ha (anche oltre lo sblocco, se lo studente è tornato indietro)
+    let last = unlocked;
+    lessonIds.forEach((id, i) => { if ((c.stars || {})[id]) last = Math.max(last, i); });
+    w.put(unlocked, 7); w.put(last, 7);
+    for (let i = 0; i <= last; i++) w.put((c.stars || {})[lessonIds[i]] || 0, 2);
+    w.put(S.xp, 22);
+    w.put(S.streak, 12); w.put(dayNum(S.lastDay), 15); w.put(S.shields, 2);
+    w.put(Math.max(0, GOALS.indexOf(S.goal)), 2);
+    w.put(set.accents === 'lenient' ? 1 : 0, 1); w.put(set.input === 'keys' ? 1 : 0, 1); w.put(set.gen !== false ? 1 : 0, 1);
+    w.put(set.sound !== false ? 1 : 0, 1); w.put(set.voice !== false ? 1 : 0, 1); w.put(set.online !== false ? 1 : 0, 1);
+    w.put(Math.max(0, THEMES.indexOf(set.theme || 'auto')), 2);
+    w.put(Math.max(0, LEVELS.indexOf(pr.level || 'media')), 2); w.put(pr.wide ? 1 : 0, 1);
+    badgeIds.forEach((b) => w.put((S.badges || {})[b] ? 1 : 0, 1));
+    w.put(st.lessons, 12); w.put(st.answered, 16); w.put(st.correct, 16); w.put(st.translated, 14);
+    const name = [...String(S.name || '')].filter((ch) => NAME_CH.includes(ch)).slice(0, 16);
+    w.put(name.length, 5); name.forEach((ch) => w.put(NAME_CH.indexOf(ch), 7));
+    const bits = w.bits;
+    while (bits.length % 5 !== 4) bits.push(0); // 16 bit di controllo: il totale diventa multiplo di 5
+    const ck = check(bits);
+    for (let i = 15; i >= 0; i--) bits.push(Math.floor(ck / 2 ** i) % 2);
+    let out = '';
+    for (let i = 0; i < bits.length; i += 5) out += ALPHA[bits.slice(i, i + 5).reduce((a, x) => a * 2 + x, 0)];
+    return out.match(/.{1,4}/g).join('-');
+  }
+  function clean(code) {
+    return String(code).toUpperCase().replace(/[\s-]/g, '').replace(/[IL]/g, '1').replace(/O/g, '0');
+  }
+  // restituisce un oggetto parziale da fondere nello stato, oppure lancia un errore leggibile
+  function decode(code, lessonIds, badgeIds) {
+    const s = clean(code);
+    if (s.length < 20) throw new Error('Il codice è troppo corto: controlla di averlo copiato tutto.');
+    const bits = [];
+    for (const ch of s) {
+      const v = ALPHA.indexOf(ch);
+      if (v < 0) throw new Error(`Il carattere «${ch}» non fa parte dei codici di Hermeneus.`);
+      for (let i = 4; i >= 0; i--) bits.push(Math.floor(v / 2 ** i) % 2);
+    }
+    const body = bits.slice(0, -16), ck = bits.slice(-16).reduce((a, x) => a * 2 + x, 0);
+    if (check(body) !== ck) throw new Error('Il codice non torna: forse manca un carattere o ce n’è uno sbagliato.');
+    const r = Reader(body);
+    const ver = r.get(4);
+    if (ver !== VERSION) throw new Error('Questo codice viene da una versione diversa di Hermeneus.');
+    const unlocked = Math.min(r.get(7), lessonIds.length - 1);
+    const last = r.get(7);
+    const stars = {};
+    for (let i = 0; i <= last; i++) { const v = r.get(2); if (v && lessonIds[i]) stars[lessonIds[i]] = v; }
+    const xp = r.get(22), streak = r.get(12), lastDay = dayKey(r.get(15)), shields = r.get(2);
+    const goal = GOALS[r.get(2)];
+    const settings = { accents: r.get(1) ? 'lenient' : 'strict', input: r.get(1) ? 'keys' : 'tiles', gen: !!r.get(1), sound: !!r.get(1), voice: !!r.get(1), online: !!r.get(1), theme: THEMES[r.get(2)] || 'auto' };
+    const prac = { level: LEVELS[r.get(2)], wide: !!r.get(1) };
+    const badges = {};
+    badgeIds.forEach((b) => { if (r.get(1)) badges[b] = lastDay || '2025-01-01'; });
+    const stats = { lessons: r.get(12), answered: r.get(16), correct: r.get(16), translated: r.get(14) };
+    const nl = r.get(5);
+    let name = '';
+    for (let i = 0; i < nl; i++) name += NAME_CH[r.get(7)] || '';
+    const times = {};
+    Object.keys(stars).forEach((id) => { times[id] = 1; });
+    return { course: { unlocked, stars, times }, xp, streak, lastDay, shields, goal, settings, prac, badges, stats, name };
+  }
+  root.HermSave = { encode, decode, clean };
+  if (typeof module !== 'undefined') module.exports = root.HermSave;
+})(typeof window !== 'undefined' ? window : globalThis);
+
 ;window.HERM_PRE = {"bank":[{"tok":[[0,"art.f.nom.s","ἡ"],[0,"art.f.gen.s","τῆς"],[9,"n.gen.s","θεᾶς"],[32,"n.nom.s","τιμή"],["."]],"tags":["art","d1"]},{"tok":[[0,"art.f.nom.p","αἱ"],[0,"art.m.gen.p","τῶν"],[60,"n.gen.p","πολιτῶν"],[34,"n.nom.p","γνῶμαι"],["."]],"tags":["art","d1"]},{"tok":[[0,"art.f.nom.s","ἡ"],[0,"art.f.gen.s","τῆς"],[1,"n.gen.s","χώρας"],[39,"n.nom.s","εἰρήνη"],["."]],"tags":["art","d1"]},{"tok":[[0,"art.f.nom.s","ἡ"],[0,"art.m.gen.s","τοῦ"],[62,"n.gen.s","ναύτου"],[29,"n.nom.s","τόλμα"],["."]],"tags":["art","d1"]},{"tok":[[0,"art.f.nom.p","αἱ"],[0,"art.m.gen.p","τῶν"],[26,"n.gen.p","μουσῶν"],[37,"n.nom.p","φωναί"],["."]],"tags":["art","d1"]},{"tok":[[0,"art.f.nom.s","ἡ"],[0,"art.f.gen.s","τῆς"],[23,"n.gen.s","θαλάττης"],[16,"n.nom.s","ἡσυχία"],["."]],"tags":["art","d1"]},{"tok":[[0,"art.m.nom.s","ὁ"],[66,"n.nom.s","ποιητής"],[0,"art.f.acc.s","τήν"],[9,"n.acc.s","θεάν"],[377,"pres.ind.act.3s","θαυμάζει"],["."]],"tags":["art","d1","pres"]},{"tok":[[0,"art.m.nom.p","οἱ"],[60,"n.nom.p","πολῖται"],[0,"art.f.acc.s","τήν"],[39,"n.acc.s","εἰρήνην"],[387,"pres.ind.act.3p","ἐθέλουσι"],["."]],"tags":["art","d1","pres"]},{"tok":[[0,"art.m.nom.s","ὁ"],[71,"n.nom.s","νεανίας"],[0,"art.f.acc.s","τήν"],[40,"n.acc.s","ἐπιστολήν"],[359,"pres.ind.act.3s","γράφει"],["."]],"tags":["art","d1","pres"]},{"tok":[[0,"art.f.nom.p","αἱ"],[26,"n.nom.p","μοῦσαι"],[0,"art.f.acc.s","τήν"],[33,"n.acc.s","ψυχήν"],[343,"pres.ind.act.3p","παιδεύουσι"],["."]],"tags":["art","d1","pres"]},{"tok":[[0,"art.m.nom.p","οἱ"],[62,"n.nom.p","ναῦται"],[0,"art.f.acc.s","τήν"],[23,"n.acc.s","θάλατταν"],[477,"i.neg","οὐ"],[386,"pres.ind.act.3p","φεύγουσι"],["."]],"tags":["art","d1","pres"]},{"tok":[[359,"pres.ind.act.1s","γράφω"],[475,"i.cong","καί"],[402,"pres.ind.act.1s","λέγω"],["."]],"tags":["pres"]},{"tok":[[349,"pres.ind.act.2p","ἀκούετε"],[475,"i.cong","καί"],[401,"pres.ind.act.2p","μανθάνετε"],["."]],"tags":["pres"]},{"tok":[[477,"i.neg","οὐ"],[386,"pres.ind.act.1p","φεύγομεν"],[","],[476,"i.cong","ἀλλά"],[390,"pres.ind.act.1p","μένομεν"],["."]],"tags":["pres"]},{"tok":[[60,"n.nom.p","πολῖται"],[466,"pres.ind.act.1p","ἐσμέν"],["."]],"tags":["d1","pres"]},{"tok":[[61,"n.nom.p","στρατιῶται"],[466,"pres.ind.act.2p","ἐστέ"],[475,"i.cong","καί"],[0,"art.f.acc.s","τήν"],[1,"n.acc.s","χώραν"],[370,"pres.ind.act.2p","φυλάττετε"],["."]],"tags":["art","d1","pres"]},{"tok":[[402,"pres.imp.act.2s","λέγε"],[0,"art.f.acc.s","τήν"],[19,"n.acc.s","ἀλήθειαν"],["."]],"tags":["art","d1","pres"]},{"tok":[[370,"pres.ind.act.2p","φυλάττετε"],[0,"art.f.acc.p","τάς"],[6,"n.gen.s","θύρας"],["."]],"tags":["art","d1","pres"]},{"tok":[[387,"pres.ind.act.1s","ἐθέλω"],[0,"art.f.acc.s","τήν"],[19,"n.acc.s","ἀλήθειαν"],[349,"pres.inf.act","ἀκούειν"],["."]],"tags":["art","d1","pres"]},{"tok":[[0,"art.m.nom.s","ὁ"],[63,"n.nom.s","δεσπότης"],[0,"art.m.acc.s","τόν"],[67,"n.acc.s","οἰκέτην"],[360,"pres.ind.act.3s","πέμπει"],["."]],"tags":["art","d1","pres"]},{"tok":[[0,"art.m.nom.s","ὁ"],[79,"n.nom.s","ἄνθρωπος"],[0,"art.m.acc.s","τόν"],[80,"n.acc.s","ἵππον"],[342,"pres.ind.act.3s","λύει"],["."]],"tags":["art","pres","d2"]},{"tok":[[0,"art.m.nom.p","οἱ"],[81,"n.nom.p","δοῦλοι"],[0,"art.m.acc.p","τούς"],[85,"n.acc.p","ἀγρούς"],[370,"pres.ind.act.3p","φυλάττουσι"],["."]],"tags":["art","pres","d2"]},{"tok":[[0,"art.n.nom.p","τά"],[136,"n.nom.p","ζῷα"],[412,"pres.ind.act.3s","τρέχει"],["."]],"tags":["art","pres","d2"]},{"tok":[[0,"art.m.nom.s","ὁ"],[89,"n.nom.s","στρατηγός"],[0,"art.m.acc.p","τούς"],[61,"n.acc.p","στρατιώτας"],[343,"pres.ind.act.3s","παιδεύει"],["."]],"tags":["art","d1","pres","d2"]},{"tok":[[0,"art.m.nom.p","οἱ"],[82,"n.nom.p","θεοί"],[0,"art.m.acc.p","τούς"],[79,"n.acc.p","ἀνθρώπους"],[375,"pres.ind.act.3p","σῴζουσι"],["."]],"tags":["art","pres","d2"]},{"tok":[[0,"art.m.nom.s","ὁ"],[101,"n.nom.s","διδάσκαλος"],[0,"art.n.nom.p","τά"],[138,"n.nom.p","βιβλία"],[359,"pres.ind.act.3s","γράφει"],["."]],"tags":["art","pres","d2"]},{"tok":[[480,"i.inter","ὦ"],[84,"n.voc.s","ἄδελφε"],[","],[390,"pres.imp.act.2s","μένε"],["."]],"tags":["pres","d2"]},{"tok":[[0,"art.m.nom.s","ὁ"],[106,"n.nom.s","δῆμος"],[0,"art.m.acc.p","τούς"],[87,"n.acc.p","νόμους"],[370,"pres.ind.act.3s","φυλάττει"],["."]],"tags":["art","pres","d2"]},{"tok":[[0,"art.m.nom.s","ὁ"],[104,"n.nom.s","γεωργός"],[0,"art.m.acc.s","τόν"],[99,"n.acc.s","σῖτον"],[475,"i.cong","καί"],[0,"art.m.acc.s","τόν"],[98,"n.acc.s","οἶνον"],[409,"pres.ind.act.3s","φέρει"],["."]],"tags":["art","pres","d2"]},{"tok":[[0,"art.n.nom.p","τά"],[135,"n.nom.p","τέκνα"],[0,"art.m.acc.p","τούς"],[78,"n.acc.p","λόγους"],[349,"pres.ind.act.3s","ἀκούει"],["."]],"tags":["art","pres","d2"]},{"tok":[[0,"art.m.nom.s","ὁ"],[105,"n.nom.s","ἰατρός"],[0,"art.f.acc.s","τήν"],[129,"n.acc.s","νόσον"],[352,"pres.ind.act.3s","θεραπεύει"],["."]],"tags":["art","pres","d2"]},{"tok":[[0,"art.m.nom.s","ὁ"],[88,"n.nom.s","πόλεμος"],[0,"art.m.acc.p","τούς"],[79,"n.acc.p","ἀνθρώπους"],[343,"pres.ind.act.3s","παιδεύει"],["."]],"tags":["art","pres","d2"]},{"tok":[[0,"art.m.nom.s","ὁ"],[261,"a.pos.m.nom.s","ἀγαθός"],[89,"n.nom.s","στρατηγός"],[0,"art.m.acc.p","τούς"],[61,"n.acc.p","στρατιώτας"],[375,"pres.ind.act.3s","σῴζει"],["."]],"tags":["art","d1","pres","d2","agg1"]},{"tok":[[0,"art.f.nom.s","ἡ"],[128,"n.nom.s","ὁδός"],[272,"a.pos.f.nom.s","μακρά"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","d2","agg1"]},{"tok":[[263,"a.pos.f.nom.s","καλή"],[0,"art.f.nom.s","ἡ"],[35,"n.nom.s","νίκη"],["."]],"tags":["art","d1","agg1"]},{"tok":[[0,"art.m.nom.p","οἱ"],[265,"a.pos.m.nom.p","δίκαιοι"],[87,"n.nom.p","νόμοι"],[0,"art.f.acc.s","τήν"],[1,"n.acc.s","χώραν"],[375,"pres.ind.act.3p","σῴζουσι"],["."]],"tags":["art","d1","pres","d2","agg1"]},{"tok":[[269,"a.pos.n.nom.p","χαλεπά"],[0,"art.n.nom.p","τά"],[263,"a.pos.n.nom.p","καλά"],["."]],"tags":["art","agg1"]},{"tok":[[0,"art.m.nom.s","ὁ"],[81,"n.nom.s","δοῦλος"],[477,"i.neg","οὐκ"],[278,"a.pos.m.nom.s","ἐλεύθερος"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","d2","agg1"]},{"tok":[[0,"art.m.nom.p","οἱ"],[261,"a.pos.m.nom.p","ἀγαθοί"],[0,"art.f.acc.s","τήν"],[19,"n.acc.s","ἀλήθειαν"],[402,"pres.ind.act.3p","λέγουσι"],["."]],"tags":["art","d1","pres","agg1"]},{"tok":[[0,"art.f.nom.s","ἡ"],[3,"n.nom.s","οἰκία"],[271,"a.pos.f.nom.s","μικρά"],[466,"pres.ind.act.3s","ἐστί"],[","],[476,"i.cong","ἀλλά"],[263,"a.pos.f.nom.s","καλή"],["."]],"tags":["art","d1","pres","agg1"]},{"tok":[[300,"a.pos.m.nom.p","πολλοί"],[79,"n.nom.p","ἄνθρωποι"],[0,"art.f.acc.s","τήν"],[25,"n.acc.s","δόξαν"],[377,"pres.ind.act.3p","θαυμάζουσι"],["."]],"tags":["art","d1","pres","d2","agg1"]},{"tok":[[0,"art.n.nom.s","τό"],[134,"n.nom.s","ἔργον"],[269,"a.pos.m.acc.s","χαλεπόν"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","d2","agg1"]},{"tok":[[266,"a.pos.m.nom.s","ἄδικος"],[0,"art.m.nom.s","ὁ"],[120,"n.nom.s","τύραννος"],["."]],"tags":["art","d2","agg1"]},{"tok":[[0,"art.m.nom.p","οἱ"],[62,"n.nom.p","ναῦται"],[520,"i.prep","ἐν"],[0,"art.f.dat.s","τῇ"],[23,"n.dat.s","θαλάττῃ"],[390,"pres.ind.act.3p","μένουσι"],["."]],"tags":["art","d1","pres","prep"]},{"tok":[[0,"art.m.nom.s","ὁ"],[89,"n.nom.s","στρατηγός"],[521,"i.prep","εἰς"],[0,"art.f.acc.s","τήν"],[1,"n.acc.s","χώραν"],[0,"art.m.acc.s","τόν"],[90,"n.acc.s","στρατόν"],[367,"pres.ind.act.3s","ἄγει"],["."]],"tags":["art","d1","pres","d2","prep"]},{"tok":[[0,"art.m.nom.p","οἱ"],[60,"n.nom.p","πολῖται"],[522,"i.prep","ἐκ"],[0,"art.f.gen.s","τῆς"],[7,"n.gen.s","ἀγορᾶς"],[386,"pres.ind.act.3p","φεύγουσι"],["."]],"tags":["art","d1","pres","prep"]},{"tok":[[0,"art.m.nom.s","ὁ"],[104,"n.nom.s","γεωργός"],[526,"i.prep","μετά"],[0,"art.m.gen.p","τῶν"],[81,"n.gen.p","δούλων"],[520,"i.prep","ἐν"],[0,"art.m.dat.p","τοῖς"],[85,"n.dat.p","ἀγροῖς"],[390,"pres.ind.act.3s","μένει"],["."]],"tags":["art","pres","d2","prep"]},{"tok":[[525,"i.prep","διά"],[0,"art.m.acc.s","τόν"],[88,"n.acc.s","πόλεμον"],[0,"art.m.nom.p","οἱ"],[79,"n.nom.p","ἄνθρωποι"],[386,"pres.ind.act.3p","φεύγουσι"],["."]],"tags":["art","pres","d2","prep"]},{"tok":[[0,"art.m.nom.s","ὁ"],[66,"n.nom.s","ποιητής"],[527,"i.prep","περί"],[0,"art.f.gen.s","τῆς"],[38,"n.gen.s","ἀρετῆς"],[402,"pres.ind.act.3s","λέγει"],["."]],"tags":["art","d1","pres","prep"]},{"tok":[[0,"art.m.nom.p","οἱ"],[104,"n.nom.p","γεωργοί"],[523,"i.prep","ἀπό"],[0,"art.m.gen.p","τῶν"],[85,"n.gen.p","ἀγρῶν"],[521,"i.prep","εἰς"],[0,"art.f.acc.s","τήν"],[7,"n.acc.s","ἀγοράν"],[99,"n.acc.s","σῖτον"],[409,"pres.ind.act.3p","φέρουσι"],["."]],"tags":["art","d1","pres","d2","prep"]},{"tok":[[531,"i.prep","σύν"],[0,"art.m.dat.p","τοῖς"],[82,"n.dat.p","θεοῖς"],[0,"art.f.acc.s","τήν"],[1,"n.acc.s","χώραν"],[375,"pres.ind.act.1p","σῴζομεν"],["."]],"tags":["art","d1","pres","d2","prep"]},{"tok":[[0,"art.m.nom.s","ὁ"],[63,"n.nom.s","δεσπότης"],[524,"i.prep","πρός"],[0,"art.f.acc.s","τήν"],[6,"n.acc.s","θύραν"],[412,"pres.ind.act.3s","τρέχει"],["."]],"tags":["art","d1","pres","prep"]},{"tok":[[0,"art.m.nom.s","ὁ"],[109,"n.nom.s","λύκος"],[522,"i.prep","ἐκ"],[0,"art.f.gen.s","τῆς"],[56,"n.gen.s","ὕλης"],[412,"pres.ind.act.3s","τρέχει"],["."]],"tags":["art","d1","pres","d2","prep"]},{"tok":[[0,"art.m.dat.p","τοῖς"],[137,"n.dat.p","ὅπλοις"],[0,"art.f.acc.s","τήν"],[1,"n.acc.s","χώραν"],[370,"pres.ind.act.1p","φυλάττομεν"],["."]],"tags":["art","d1","pres","d2","prep"]},{"tok":[[0,"art.m.nom.s","ὁ"],[80,"n.nom.s","ἵππος"],[532,"i.prep","ὑπό"],[0,"art.m.gen.s","τοῦ"],[81,"n.gen.s","δούλου"],[342,"pres.ind.mp.3s","λύεται"],["."]],"tags":["art","d2","prep","mp"]},{"tok":[[0,"art.m.nom.p","οἱ"],[61,"n.nom.p","στρατιῶται"],[532,"i.prep","ὑπό"],[0,"art.m.gen.s","τοῦ"],[89,"n.gen.s","στρατηγοῦ"],[343,"pres.ind.mp.3p","παιδεύονται"],["."]],"tags":["art","d1","d2","prep","mp"]},{"tok":[[417,"pres.ind.mp.1p","βουλόμεθα"],[0,"art.f.acc.s","τήν"],[19,"n.acc.s","ἀλήθειαν"],[401,"pres.inf.act","μανθάνειν"],["."]],"tags":["art","d1","pres","mp"]},{"tok":[[0,"art.m.nom.s","ὁ"],[81,"n.nom.s","δοῦλος"],[278,"a.pos.m.nom.s","ἐλεύθερος"],[414,"pres.ind.mp.3s","γίγνεται"],["."]],"tags":["art","d2","agg1","mp"]},{"tok":[[351,"pres.ind.mp.2p","παύεσθε"],[","],[480,"i.inter","ὦ"],[60,"n.nom.p","πολῖται"],["."]],"tags":["d1","pres","mp"]},{"tok":[[0,"art.m.nom.p","οἱ"],[87,"n.nom.p","νόμοι"],[532,"i.prep","ὑπό"],[0,"art.m.gen.p","τῶν"],[60,"n.gen.p","πολιτῶν"],[370,"pres.ind.mp.3p","φυλάττονται"],["."]],"tags":["art","d1","d2","prep","mp"]},{"tok":[[0,"art.n.nom.p","τά"],[137,"n.nom.p","ὅπλα"],[532,"i.prep","ὑπό"],[0,"art.m.gen.p","τῶν"],[61,"n.gen.p","στρατιωτῶν"],[409,"pres.ind.mp.3s","φέρεται"],["."]],"tags":["art","d1","d2","prep","mp"]},{"tok":[[419,"pres.ind.mp.3p","μάχονται"],[0,"art.m.nom.p","οἱ"],[61,"n.nom.p","στρατιῶται"],["."]],"tags":["art","d1","mp"]},{"tok":[[0,"art.n.nom.p","τά"],[135,"n.nom.p","τέκνα"],[532,"i.prep","ὑπό"],[0,"art.m.gen.p","τῶν"],[9,"n.gen.p","θεῶν"],[375,"pres.ind.mp.3s","σῴζεται"],["."]],"tags":["art","d1","d2","prep","mp"]},{"tok":[[368,"pres.ind.mp.1p","ἀρχόμεθα"],[0,"art.m.gen.s","τοῦ"],[134,"n.gen.s","ἔργου"],["."]],"tags":["art","d2","mp"]},{"tok":[[0,"art.m.nom.p","οἱ"],[285,"a.pos.m.nom.p","πολέμιοι"],[0,"art.m.acc.p","τούς"],[85,"n.acc.p","ἀγρούς"],[395,"impf.ind.act.1s","διέφθειρον"],["."]],"tags":["art","d2","agg1","impf"]},{"tok":[[0,"art.m.nom.s","ὁ"],[101,"n.nom.s","διδάσκαλος"],[0,"art.m.acc.p","τούς"],[65,"n.acc.p","μαθητάς"],[343,"impf.ind.act.3s","ἐπαίδευε"],["."]],"tags":["art","d1","d2","impf"]},{"tok":[[496,"i.avv","τότε"],[520,"i.prep","ἐν"],[0,"art.f.dat.s","τῇ"],[36,"n.dat.s","κώμῃ"],[390,"impf.ind.act.1p","ἐμένομεν"],["."]],"tags":["art","d1","pres","prep","impf"]},{"tok":[[0,"art.m.nom.p","οἱ"],[61,"n.nom.p","στρατιῶται"],[0,"art.f.acc.p","τάς"],[46,"n.acc.p","πύλας"],[370,"impf.ind.act.1s","ἐφύλαττον"],["."]],"tags":["art","d1","impf"]},{"tok":[[0,"art.m.nom.s","ὁ"],[110,"n.nom.s","ἄγγελος"],[0,"art.f.acc.s","τήν"],[35,"n.acc.s","νίκην"],[392,"impf.ind.act.3s","ἤγγελλε"],["."]],"tags":["art","d1","d2","impf"]},{"tok":[[0,"art.m.nom.s","ὁ"],[104,"n.nom.s","γεωργός"],[0,"art.m.acc.s","τόν"],[80,"n.acc.s","ἵππον"],[367,"impf.ind.act.3s","ἦγε"],[521,"i.prep","εἰς"],[0,"art.m.acc.s","τόν"],[85,"n.acc.s","ἀγρόν"],["."]],"tags":["art","d2","prep","impf"]},{"tok":[[0,"art.m.nom.p","οἱ"],[62,"n.nom.p","ναῦται"],[520,"i.prep","ἐν"],[0,"art.f.dat.s","τῇ"],[23,"n.dat.s","θαλάττῃ"],[355,"impf.ind.act.1s","ἐκινδύνευον"],["."]],"tags":["art","d1","prep","impf"]},{"tok":[[0,"art.f.nom.s","ἡ"],[8,"n.nom.s","στρατιά"],[532,"i.prep","ὑπό"],[0,"art.m.gen.s","τοῦ"],[89,"n.gen.s","στρατηγοῦ"],[367,"impf.ind.mp.3s","ἤγετο"],["."]],"tags":["art","d1","d2","prep","mp","impf"]},{"tok":[[466,"impf.ind.act.1s","ἦν"],[499,"i.avv","ποτέ"],[520,"i.prep","ἐν"],[0,"art.f.dat.s","τῇ"],[127,"n.dat.s","νήσῳ"],[66,"n.nom.s","ποιητής"],["."]],"tags":["art","d1","pres","d2","prep","impf"]},{"tok":[[0,"art.m.nom.s","ὁ"],[124,"n.nom.s","Κῦρος"],[300,"a.pos.n.nom.p","πολλά"],[133,"n.nom.p","δῶρα"],[0,"art.m.dat.p","τοῖς"],[268,"a.pos.m.dat.p","φίλοις"],[360,"impf.ind.act.3s","ἔπεμπε"],["."]],"tags":["art","d2","agg1","impf"]},{"tok":[[417,"impf.ind.mp.1p","ἐβουλόμεθα"],[520,"i.prep","ἐν"],[0,"art.f.dat.s","τῇ"],[3,"n.dat.s","οἰκίᾳ"],[390,"pres.inf.act","μένειν"],["."]],"tags":["art","d1","pres","prep","mp","impf"]},{"tok":[[0,"art.m.nom.p","οἱ"],[60,"n.nom.p","πολῖται"],[0,"art.m.acc.p","τούς"],[261,"a.pos.m.acc.p","ἀγαθούς"],[449,"pres.ind.act.3p","τιμῶσι"],["."]],"tags":["art","d1","pres","agg1","contr"]},{"tok":[[0,"art.n.nom.p","τά"],[263,"a.pos.n.nom.p","καλά"],[427,"pres.ind.act.2p","ποιεῖτε"],["."]],"tags":["art","pres","agg1","contr"]},{"tok":[[0,"art.m.nom.s","ὁ"],[91,"n.nom.s","ἥλιος"],[0,"art.f.acc.s","τήν"],[128,"n.acc.s","ὁδόν"],[460,"pres.ind.act.3s","δηλοῖ"],["."]],"tags":["art","pres","d2","contr"]},{"tok":[[428,"pres.ind.act.1p","φιλοῦμεν"],[0,"art.m.acc.p","τούς"],[268,"a.pos.m.acc.p","φίλους"],["."]],"tags":["art","pres","agg1","contr"]},{"tok":[[0,"art.m.nom.s","ὁ"],[81,"n.nom.s","δοῦλος"],[0,"art.f.acc.s","τήν"],[6,"n.acc.s","θύραν"],[430,"pres.ind.act.3s","ζητεῖ"],["."]],"tags":["art","d1","pres","d2","contr"]},{"tok":[[0,"art.m.nom.s","ὁ"],[89,"n.nom.s","στρατηγός"],[448,"impf.ind.act.3s","ἐνίκα"],[0,"art.m.acc.p","τούς"],[285,"a.pos.m.acc.p","πολεμίους"],["."]],"tags":["art","d2","agg1","impf","contr"]},{"tok":[[0,"art.m.nom.p","οἱ"],[82,"n.nom.p","θεοί"],[532,"i.prep","ὑπό"],[0,"art.m.gen.p","τῶν"],[79,"n.gen.p","ἀνθρώπων"],[449,"pres.ind.mp.3p","τιμῶνται"],["."]],"tags":["art","d2","prep","mp","contr"]},{"tok":[[0,"art.m.nom.s","ὁ"],[66,"n.nom.s","ποιητής"],[453,"impf.ind.act.3s","ἐβόα"],[520,"i.prep","ἐν"],[0,"art.f.dat.s","τῇ"],[7,"n.dat.s","ἀγορᾷ"],["."]],"tags":["art","d1","prep","impf","contr"]},{"tok":[[454,"pres.imp.act.2s","ἀγάπα"],[0,"art.f.acc.s","τήν"],[19,"n.acc.s","ἀλήθειαν"],["."]],"tags":["art","d1","pres","contr"]},{"tok":[[0,"art.m.nom.p","οἱ"],[285,"a.pos.m.nom.p","πολέμιοι"],[0,"art.f.acc.s","τήν"],[1,"n.acc.s","χώραν"],[429,"pres.ind.act.3p","οἰκοῦσι"],["."]],"tags":["art","d1","pres","agg1","contr"]},{"tok":[[450,"pres.ind.act.2s","ὁρᾷς"],[0,"art.m.acc.s","τόν"],[91,"n.acc.s","ἥλιον"],[";"]],"tags":["art","pres","d2","contr"]},{"tok":[[0,"art.m.nom.s","ὁ"],[90,"n.nom.s","στρατός"],[440,"impf.ind.act.3s","ἀνεχώρει"],[521,"i.prep","εἰς"],[0,"art.n.nom.s","τό"],[143,"n.nom.s","στρατόπεδον"],["."]],"tags":["art","d2","prep","impf","contr"]},{"tok":[[0,"art.m.nom.p","οἱ"],[71,"n.nom.p","νεανίαι"],[0,"art.m.acc.s","τόν"],[101,"n.acc.s","διδάσκαλον"],[451,"impf.ind.act.1s","ἠρώτων"],["."]],"tags":["art","d1","d2","impf","contr"]},{"tok":[[0,"art.m.nom.s","ὁ"],[161,"n.nom.s","φύλαξ"],[0,"art.f.acc.p","τάς"],[46,"n.acc.p","πύλας"],[370,"pres.ind.act.3s","φυλάττει"],["."]],"tags":["art","d1","pres","d3"]},{"tok":[[0,"art.m.nom.p","οἱ"],[200,"n.nom.p","Ἕλληνες"],[535,"i.prep","ὑπέρ"],[0,"art.f.gen.s","τῆς"],[12,"n.gen.s","ἐλευθερίας"],[419,"pres.ind.mp.3p","μάχονται"],["."]],"tags":["art","d1","prep","mp","d3"]},{"tok":[[0,"art.m.nom.s","ὁ"],[204,"n.nom.s","ῥήτωρ"],[0,"art.m.acc.p","τούς"],[60,"n.acc.p","πολίτας"],[374,"pres.ind.act.3s","πείθει"],["."]],"tags":["art","d1","pres","d3"]},{"tok":[[0,"art.m.nom.s","ὁ"],[207,"n.nom.s","πατήρ"],[0,"art.m.acc.s","τόν"],[174,"n.acc.s","παῖδα"],[343,"pres.ind.act.3s","παιδεύει"],["."]],"tags":["art","pres","d3"]},{"tok":[[0,"art.f.nom.p","αἱ"],[211,"n.nom.p","γυναῖκες"],[520,"i.prep","ἐν"],[0,"art.f.dat.s","τῇ"],[3,"n.dat.s","οἰκίᾳ"],[390,"pres.ind.act.3p","μένουσι"],["."]],"tags":["art","d1","pres","prep","d3"]},{"tok":[[0,"art.m.nom.s","ὁ"],[251,"n.nom.s","βασιλεύς"],[0,"art.f.acc.s","τήν"],[238,"n.acc.s","πόλιν"],[522,"i.prep","ἐκ"],[0,"art.m.gen.p","τῶν"],[285,"a.pos.m.gen.p","πολεμίων"],[375,"pres.ind.act.3s","σῴζει"],["."]],"tags":["art","pres","agg1","prep","d3"]},{"tok":[[173,"n.gen.s","νυκτός"],[0,"art.m.nom.p","οἱ"],[161,"n.nom.p","φύλακες"],[0,"art.f.acc.s","τήν"],[238,"n.acc.s","πόλιν"],[370,"pres.ind.act.3p","φυλάττουσι"],["."]],"tags":["art","pres","d3"]},{"tok":[[0,"art.n.nom.p","τά"],[176,"n.nom.p","σώματα"],[0,"art.m.gen.p","τῶν"],[61,"n.gen.p","στρατιωτῶν"],[520,"i.prep","ἐν"],[0,"art.m.dat.s","τῷ"],[142,"n.dat.s","πεδίῳ"],[466,"impf.ind.act.1s","ἦν"],["."]],"tags":["art","d1","d2","prep","impf","d3"]},{"tok":[[0,"art.m.nom.s","ὁ"],[194,"n.nom.s","ποιμήν"],[0,"art.m.acc.p","τούς"],[256,"n.nom.s","βοῦς"],[521,"i.prep","εἰς"],[0,"art.m.acc.s","τόν"],[85,"n.acc.s","ἀγρόν"],[367,"pres.ind.act.3s","ἄγει"],["."]],"tags":["art","pres","d2","prep","d3"]},{"tok":[[0,"art.n.nom.s","τό"],[215,"n.nom.s","τεῖχος"],[0,"art.f.gen.s","τῆς"],[238,"n.gen.s","πόλεως"],[272,"a.pos.m.acc.s","μακρόν"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","agg1","d3"]},{"tok":[[0,"art.m.nom.p","οἱ"],[189,"n.nom.p","γέροντες"],[0,"art.m.dat.p","τοῖς"],[71,"n.dat.p","νεανίαις"],[402,"pres.ind.act.3p","λέγουσι"],[0,"art.f.acc.s","τήν"],[19,"n.acc.s","ἀλήθειαν"],["."]],"tags":["art","d1","pres","d3"]},{"tok":[[0,"art.m.nom.s","ὁ"],[210,"n.nom.s","ἀνήρ"],[0,"art.f.acc.s","τήν"],[211,"n.acc.s","γυναῖκα"],[428,"pres.ind.act.3s","φιλεῖ"],["."]],"tags":["art","pres","contr","d3"]},{"tok":[[480,"i.inter","ὦ"],[174,"n.voc.s","παῖ"],[","],[349,"pres.imp.act.2s","ἄκουε"],[0,"art.m.gen.s","τοῦ"],[207,"n.gen.s","πατρός"],["."]],"tags":["art","pres","d3"]},{"tok":[[0,"art.f.nom.s","ἡ"],[240,"n.nom.s","φύσις"],[0,"art.m.gen.p","τῶν"],[178,"n.gen.p","πραγμάτων"],[269,"a.pos.f.nom.s","χαλεπή"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","agg1","d3"]},{"tok":[[0,"art.m.nom.s","ὁ"],[232,"n.nom.s","Σωκράτης"],[0,"art.m.acc.p","τούς"],[273,"a.pos.m.acc.p","νέους"],[343,"impf.ind.act.3s","ἐπαίδευε"],["."]],"tags":["art","agg1","impf","d3"]},{"tok":[[307,"a.pos.m.nom.p","ἀληθεῖς"],[78,"n.acc.p","λόγους"],[402,"pres.ind.act.3s","λέγει"],[0,"art.m.nom.s","ὁ"],[314,"a.pos.m.nom.s","σώφρων"],[210,"n.nom.s","ἀνήρ"],["."]],"tags":["art","pres","d2","d3","agg2"]},{"tok":[[0,"art.m.nom.s","ὁ"],[91,"n.nom.s","ἥλιος"],[299,"a.cmp.m.nom.s","μείζων"],[466,"pres.ind.act.3s","ἐστί"],[0,"art.f.gen.s","τῆς"],[57,"n.gen.s","γῆς"],["."]],"tags":["art","d1","pres","d2","agg2"]},{"tok":[[264,"a.cmp.m.nom.s","σοφώτερος"],[466,"pres.ind.act.3s","ἐστί"],[0,"art.m.nom.s","ὁ"],[101,"n.nom.s","διδάσκαλος"],[479,"i.cong","ἤ"],[0,"art.m.nom.s","ὁ"],[65,"n.nom.s","μαθητής"],["."]],"tags":["art","d1","pres","d2","agg2"]},{"tok":[[326,"a.pos.m.nom.p","πάντες"],[0,"art.m.nom.p","οἱ"],[60,"n.nom.p","πολῖται"],[0,"art.f.acc.s","τήν"],[39,"n.acc.s","εἰρήνην"],[417,"pres.ind.mp.3p","βούλονται"],["."]],"tags":["art","d1","mp","agg2"]},{"tok":[[0,"art.m.nom.s","ὁ"],[232,"n.nom.s","Σωκράτης"],[264,"a.sup.m.nom.s","σοφώτατος"],[0,"art.m.gen.p","τῶν"],[200,"n.gen.p","Ἑλλήνων"],[466,"impf.ind.act.1s","ἦν"],["."]],"tags":["art","impf","d3","agg2"]},{"tok":[[316,"a.pos.m.voc.s","ἡδύ"],[0,"art.n.nom.s","τό"],[0,"art.f.gen.s","τῆς"],[39,"n.gen.s","εἰρήνης"],[177,"n.nom.s","ὄνομα"],["."]],"tags":["art","d1","d3","agg2"]},{"tok":[[0,"art.m.nom.p","οἱ"],[80,"n.nom.p","ἵπποι"],[317,"a.pos.m.nom.p","ταχεῖς"],[466,"pres.ind.act.3p","εἰσί"],["."]],"tags":["art","pres","d2","agg2"]},{"tok":[[0,"art.f.nom.s","ἡ"],[19,"n.nom.s","ἀλήθεια"],[261,"a.cmp.m.nom.s","κρείττων"],[466,"pres.ind.act.3s","ἐστί"],[0,"art.m.gen.s","τοῦ"],[221,"n.gen.s","ψεύδους"],["."]],"tags":["art","d1","pres","d3","agg2"]},{"tok":[[0,"art.f.nom.s","ἡ"],[39,"n.nom.s","εἰρήνη"],[299,"a.sup.m.acc.s","μέγιστον"],[466,"pres.ind.act.3s","ἐστί"],[261,"a.pos.m.acc.s","ἀγαθόν"],["."]],"tags":["art","d1","pres","agg1","agg2"]},{"tok":[[0,"art.m.nom.p","οἱ"],[313,"a.pos.m.nom.p","εὐδαίμονες"],[477,"i.neg","οὐκ"],[482,"i.avv","ἀεί"],[264,"a.pos.m.nom.p","σοφοί"],[466,"pres.ind.act.3p","εἰσί"],["."]],"tags":["art","pres","agg1","agg2"]},{"tok":[[331,"p.m.nom.s","οὗτος"],[0,"art.m.nom.s","ὁ"],[210,"n.nom.s","ἀνήρ"],[264,"a.pos.m.nom.s","σοφός"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","agg1","d3","pron"]},{"tok":[[333,"p.f.nom.s","ἐκείνη"],[0,"art.f.nom.s","ἡ"],[2,"n.nom.s","ἡμέρα"],[263,"a.pos.f.nom.s","καλή"],[466,"impf.ind.act.1s","ἦν"],["."]],"tags":["art","d1","agg1","impf","pron"]},{"tok":[[0,"art.m.nom.s","ὁ"],[330,"p.m.nom.s","αὐτός"],[210,"n.nom.s","ἀνήρ"],[0,"art.f.acc.s","τήν"],[238,"n.acc.s","πόλιν"],[375,"pres.ind.act.3s","σῴζει"],["."]],"tags":["art","pres","d3","pron"]},{"tok":[[330,"p.m.nom.s","αὐτός"],[0,"art.m.nom.s","ὁ"],[251,"n.nom.s","βασιλεύς"],[419,"impf.ind.mp.3s","ἐμάχετο"],["."]],"tags":["art","mp","impf","d3","pron"]},{"tok":[[328,"p.x.nom.s","ἐγώ"],[402,"pres.ind.act.1s","λέγω"],[","],[329,"p.x.nom.s","σύ"],[349,"pres.ind.act.2s","ἀκούεις"],["."]],"tags":["pres","pron"]},{"tok":[[0,"art.m.nom.p","οἱ"],[60,"n.nom.p","πολῖται"],[441,"pres.ind.act.3p","ἐπαινοῦσι"],[330,"p.m.acc.s","αὐτόν"],["."]],"tags":["art","d1","pres","contr","pron"]},{"tok":[[331,"p.n.nom.p","ταῦτα"],[402,"pres.ind.act.3s","λέγει"],[0,"art.m.nom.s","ὁ"],[66,"n.nom.s","ποιητής"],["."]],"tags":["art","d1","pres","pron"]},{"tok":[[0,"art.m.nom.s","ὁ"],[207,"n.nom.s","πατήρ"],[328,"p.x.gen.s","μου"],[264,"a.pos.m.nom.s","σοφός"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","agg1","d3","pron"]},{"tok":[[332,"p.n.nom.s","τόδε"],[0,"art.n.nom.s","τό"],[138,"n.nom.s","βιβλίον"],[303,"a.pos.m.acc.s","ἐμόν"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","d2","pron"]},{"tok":[[333,"p.m.nom.p","ἐκεῖνοι"],[0,"art.m.nom.p","οἱ"],[61,"n.nom.p","στρατιῶται"],[0,"art.f.acc.s","τήν"],[238,"n.acc.s","πόλιν"],[370,"impf.ind.act.1s","ἐφύλαττον"],["."]],"tags":["art","d1","impf","d3","pron"]},{"tok":[[344,"pres.ind.act.1s","πιστεύω"],[329,"p.x.dat.s","σοι"],["."]],"tags":["pres","pron"]},{"tok":[[0,"art.m.nom.s","ὁ"],[210,"n.nom.s","ἀνήρ"],[334,"p.m.acc.s","ὅν"],[361,"pres.ind.act.2s","βλέπεις"],[264,"a.pos.m.nom.s","σοφός"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","agg1","d3","rel"]},{"tok":[[0,"art.f.nom.s","ἡ"],[238,"n.nom.s","πόλις"],[","],[520,"i.prep","ἐν"],[334,"p.f.dat.s","ᾗ"],[429,"pres.ind.act.1p","οἰκοῦμεν"],[","],[263,"a.pos.f.nom.s","καλή"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","agg1","prep","contr","d3","rel"]},{"tok":[[335,"p.x.nom.s","τίς"],[466,"pres.ind.act.3s","ἐστί"],[331,"p.m.nom.s","οὗτος"],[";"]],"tags":["pres","pron","rel"]},{"tok":[[335,"p.n.nom.s","τί"],[402,"pres.ind.act.2s","λέγεις"],[";"]],"tags":["pres","rel"]},{"tok":[[402,"pres.ind.act.3s","λέγει"],[336,"p.x.nom.s","τις"],[0,"art.f.acc.s","τήν"],[19,"n.acc.s","ἀλήθειαν"],["."]],"tags":["art","d1","pres","rel"]},{"tok":[[341,"p.m.nom.s","οὐδείς"],[0,"art.m.acc.s","τόν"],[95,"n.acc.s","θάνατον"],[386,"pres.ind.act.3s","φεύγει"],["."]],"tags":["art","pres","d2","rel"]},{"tok":[[0,"art.m.nom.p","οἱ"],[61,"n.nom.p","στρατιῶται"],[","],[334,"p.m.nom.p","οἵ"],[0,"art.f.acc.s","τήν"],[238,"n.acc.s","πόλιν"],[370,"impf.ind.act.1s","ἐφύλαττον"],[","],[267,"a.pos.m.nom.p","ἀνδρεῖοι"],[466,"impf.ind.act.3p","ἦσαν"],["."]],"tags":["art","d1","agg1","impf","d3","rel"]},{"tok":[[335,"p.x.nom.p","τίνες"],[466,"pres.ind.act.3p","εἰσί"],[0,"art.m.nom.p","οἱ"],[210,"n.nom.p","ἄνδρες"],[";"]],"tags":["art","pres","d3","rel"]},{"tok":[[79,"n.nom.s","ἄνθρωπος"],[336,"p.x.nom.s","τις"],[520,"i.prep","ἐν"],[0,"art.f.dat.s","τῇ"],[128,"n.dat.s","ὁδῷ"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","d2","prep","rel"]},{"tok":[[334,"p.n.nom.s","ὅ"],[402,"pres.ind.act.2s","λέγεις"],[307,"a.pos.m.voc.s","ἀληθές"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["pres","agg2","rel"]},{"tok":[[494,"i.avv","αὔριον"],[0,"art.f.acc.s","τήν"],[40,"n.acc.s","ἐπιστολήν"],[359,"fut.ind.act.1s","γράψω"],["."]],"tags":["art","d1","pres","fut"]},{"tok":[[0,"art.m.nom.p","οἱ"],[61,"n.nom.p","στρατιῶται"],[0,"art.f.acc.s","τήν"],[238,"n.acc.s","πόλιν"],[370,"fut.ind.act.3p","φυλάξουσι"],["."]],"tags":["art","d1","d3","fut"]},{"tok":[[0,"art.m.nom.s","ὁ"],[89,"n.nom.s","στρατηγός"],[477,"i.neg","οὐ"],[386,"fut.ind.mid.3s","φεύξεται"],["."]],"tags":["art","pres","d2","mp","fut"]},{"tok":[[0,"art.f.acc.s","τήν"],[19,"n.acc.s","ἀλήθειαν"],[349,"fut.ind.mid.2p","ἀκούσεσθε"],["."]],"tags":["art","d1","mp","fut"]},{"tok":[[520,"i.prep","ἐν"],[0,"art.f.dat.s","τῇ"],[238,"n.dat.s","πόλει"],[390,"fut.ind.act.1p","μενοῦμεν"],["."]],"tags":["art","prep","d3","fut"]},{"tok":[[0,"art.m.nom.p","οἱ"],[82,"n.nom.p","θεοί"],[0,"art.f.acc.s","τήν"],[1,"n.acc.s","χώραν"],[375,"fut.ind.act.3p","σώσουσι"],["."]],"tags":["art","d1","d2","fut"]},{"tok":[[0,"art.m.nom.s","ὁ"],[110,"n.nom.s","ἄγγελος"],[0,"art.f.acc.s","τήν"],[35,"n.acc.s","νίκην"],[392,"fut.ind.act.3s","ἀγγελεῖ"],["."]],"tags":["art","d1","d2","fut"]},{"tok":[[268,"a.pos.m.nom.s","φίλος"],[329,"p.x.dat.s","σοι"],[466,"fut.ind.mid.1s","ἔσομαι"],["."]],"tags":["agg1","mp","pron","fut"]},{"tok":[[335,"p.n.nom.s","τί"],[245,"n.nom.p","ποιήσεις"],[";"]],"tags":["contr","d3","rel","fut"]},{"tok":[[0,"art.m.nom.p","οἱ"],[60,"n.nom.p","πολῖται"],[0,"art.m.acc.s","τόν"],[261,"a.pos.m.acc.s","ἀγαθόν"],[89,"n.acc.s","στρατηγόν"],[449,"fut.ind.act.3p","τιμήσουσι"],["."]],"tags":["art","d1","d2","agg1","contr","fut"]},{"tok":[[400,"fut.ind.mid.3p","λήψονται"],[0,"art.m.nom.p","οἱ"],[61,"n.nom.p","στρατιῶται"],[0,"art.n.nom.p","τά"],[137,"n.nom.p","ὅπλα"],["."]],"tags":["art","d1","d2","mp","fut"]},{"tok":[[0,"art.m.nom.s","ὁ"],[124,"n.nom.s","Κῦρος"],[0,"art.m.acc.p","τούς"],[285,"a.pos.m.acc.p","πολεμίους"],[448,"aor.ind.act.3s","ἐνίκησε"],["."]],"tags":["art","d2","agg1","contr","aor"]},{"tok":[[0,"art.m.nom.p","οἱ"],[61,"n.nom.p","στρατιῶται"],[521,"i.prep","εἰς"],[0,"art.f.acc.s","τήν"],[238,"n.acc.s","πόλιν"],[413,"aor.ind.act.1s","ἦλθον"],["."]],"tags":["art","d1","prep","d3","aor"]},{"tok":[[0,"art.m.nom.s","ὁ"],[110,"n.nom.s","ἄγγελος"],[402,"aor.ind.act.3s","εἶπε"],[0,"art.f.acc.s","τήν"],[19,"n.acc.s","ἀλήθειαν"],["."]],"tags":["art","d1","d2","aor"]},{"tok":[[400,"aor.ind.act.1p","ἐλάβομεν"],[0,"art.n.nom.p","τά"],[137,"n.nom.p","ὅπλα"],[475,"i.cong","καί"],[419,"aor.ind.mid.1p","ἐμαχεσάμεθα"],["."]],"tags":["art","pres","d2","mp","aor"]},{"tok":[[0,"art.m.nom.s","ὁ"],[81,"n.nom.s","δοῦλος"],[342,"aor.ind.pass.3s","ἐλύθη"],[532,"i.prep","ὑπό"],[0,"art.m.gen.s","τοῦ"],[63,"n.gen.s","δεσπότου"],["."]],"tags":["art","d1","d2","prep","aor"]},{"tok":[[0,"art.m.nom.p","οἱ"],[285,"a.pos.m.nom.p","πολέμιοι"],[386,"aor.ind.act.1s","ἔφυγον"],[522,"i.prep","ἐκ"],[0,"art.f.gen.s","τῆς"],[1,"n.gen.s","χώρας"],["."]],"tags":["art","d1","agg1","prep","aor"]},{"tok":[[0,"art.m.nom.s","ὁ"],[232,"n.nom.s","Σωκράτης"],[405,"aor.ind.act.3s","ἀπέθανε"],[520,"i.prep","ἐν"],[0,"art.f.dat.p","ταῖς"],[58,"n.dat.p","Ἀθήναις"],["."]],"tags":["art","d1","prep","d3","aor"]},{"tok":[[359,"aor.ind.act.1p","ἐγράψαμεν"],[40,"n.acc.s","ἐπιστολήν"],[0,"art.m.dat.s","τῷ"],[207,"n.dat.s","πατρί"],["."]],"tags":["art","d1","d3","aor"]},{"tok":[[0,"art.f.nom.s","ἡ"],[238,"n.nom.s","πόλις"],[532,"i.prep","ὑπό"],[0,"art.m.gen.p","τῶν"],[285,"a.pos.m.gen.p","πολεμίων"],[400,"aor.ind.pass.3s","ἐλήφθη"],["."]],"tags":["art","agg1","prep","d3","aor"]},{"tok":[[349,"aor.imp.act.2p","ἀκούσατε"],[","],[480,"i.inter","ὦ"],[60,"n.nom.p","πολῖται"],["."]],"tags":["d1","pres","aor"]},{"tok":[[0,"art.m.nom.s","ὁ"],[89,"n.nom.s","στρατηγός"],[0,"art.m.acc.s","τόν"],[90,"n.acc.s","στρατόν"],[521,"i.prep","εἰς"],[0,"art.n.nom.s","τό"],[142,"n.nom.s","πεδίον"],[367,"aor.ind.act.3s","ἤγαγε"],["."]],"tags":["art","d2","prep","aor"]},{"tok":[[414,"aor.ind.mid.3s","ἐγένετο"],[299,"a.pos.f.nom.s","μεγάλη"],[43,"n.nom.s","μάχη"],["."]],"tags":["d1","agg1","mp","aor"]},{"tok":[[0,"art.m.acc.p","τούς"],[78,"n.acc.p","λόγους"],[0,"art.m.gen.s","τοῦ"],[101,"n.gen.s","διδασκάλου"],[349,"aor.ind.act.1p","ἠκούσαμεν"],["."]],"tags":["art","d2","aor"]},{"tok":[[0,"art.m.nom.p","οἱ"],[61,"n.nom.p","στρατιῶται"],[449,"futp.ind.pass.3p","τιμηθήσονται"],[532,"i.prep","ὑπό"],[0,"art.m.gen.p","τῶν"],[60,"n.gen.p","πολιτῶν"],["."]],"tags":["art","d1","prep","mp","contr","aor"]},{"tok":[[0,"art.m.nom.p","οἱ"],[386,"pres.part.act.m.nom.p","φεύγοντες"],[477,"i.neg","οὐ"],[375,"pres.ind.mp.3p","σῴζονται"],["."]],"tags":["art","pres","mp","d3","part"]},{"tok":[[0,"art.m.nom.s","ὁ"],[89,"n.nom.s","στρατηγός"],[0,"art.m.acc.p","τούς"],[61,"n.acc.p","στρατιώτας"],[400,"aor.part.act.m.nom.s","λαβών"],[521,"i.prep","εἰς"],[0,"art.f.acc.s","τήν"],[238,"n.acc.s","πόλιν"],[413,"aor.ind.act.3s","ἦλθε"],["."]],"tags":["art","d1","d2","prep","d3","aor","part"]},{"tok":[[0,"art.m.gen.p","τῶν"],[285,"a.pos.m.gen.p","πολεμίων"],[386,"pres.imp.act.3p","φευγόντων"],[0,"art.m.nom.p","οἱ"],[200,"n.nom.p","Ἕλληνες"],[0,"art.f.acc.s","τήν"],[238,"n.acc.s","πόλιν"],[400,"aor.ind.act.1s","ἔλαβον"],["."]],"tags":["art","pres","agg1","d3","aor","part"]},{"tok":[[0,"art.m.nom.s","ὁ"],[210,"n.nom.s","ἀνήρ"],[0,"art.m.nom.s","ὁ"],[0,"art.f.acc.s","τήν"],[40,"n.acc.s","ἐπιστολήν"],[359,"pres.part.act.m.nom.s","γράφων"],[207,"n.nom.s","πατήρ"],[328,"p.x.gen.s","μου"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","d1","pres","d3","pron","part"]},{"tok":[[331,"p.n.nom.p","ταῦτα"],[349,"aor.part.act.m.nom.p","ἀκούσαντες"],[0,"art.m.nom.p","οἱ"],[60,"n.nom.p","πολῖται"],[377,"aor.ind.act.3p","ἐθαύμασαν"],["."]],"tags":["art","d1","d3","pron","aor","part"]},{"tok":[[0,"art.m.nom.p","οἱ"],[401,"pres.part.act.m.nom.p","μανθάνοντες"],[264,"a.pos.m.nom.p","σοφοί"],[414,"pres.ind.mp.3p","γίγνονται"],["."]],"tags":["art","pres","agg1","mp","d3","part"]},{"tok":[[0,"art.m.gen.s","τοῦ"],[251,"n.gen.s","βασιλέως"],[405,"aor.part.act.m.gen.s","ἀποθανόντος"],[0,"art.m.nom.p","οἱ"],[73,"n.nom.p","Πέρσαι"],[424,"aor.ind.pass.3p","ἐφοβήθησαν"],["."]],"tags":["art","d1","contr","d3","aor","part"]},{"tok":[[0,"art.m.nom.p","οἱ"],[61,"n.nom.p","στρατιῶται"],[419,"pres.part.mp.m.nom.p","μαχόμενοι"],[405,"aor.ind.act.1s","ἀπέθανον"],["."]],"tags":["art","d1","agg1","mp","aor","part"]},{"tok":[[0,"art.m.dat.s","τῷ"],[110,"n.dat.s","ἀγγέλῳ"],[0,"art.m.dat.s","τῷ"],[0,"art.f.acc.s","τήν"],[35,"n.acc.s","νίκην"],[392,"aor.part.act.m.dat.s","ἀγγείλαντι"],[133,"n.nom.p","δῶρα"],[360,"aor.ind.act.3p","ἔπεμψαν"],["."]],"tags":["art","d1","d2","d3","aor","part"]},{"tok":[[0,"art.n.nom.p","τά"],[402,"pres.part.mp.n.nom.p","λεγόμενα"],[307,"a.pos.m.acc.s","ἀληθῆ"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","agg1","mp","agg2","part"]},{"tok":[[474,"pres.ind.act.3s","δεῖ"],[0,"art.m.acc.p","τούς"],[60,"n.acc.p","πολίτας"],[0,"art.m.dat.p","τοῖς"],[87,"n.dat.p","νόμοις"],[374,"pres.inf.mp","πείθεσθαι"],["."]],"tags":["art","d1","pres","d2","mp","inf"]},{"tok":[[417,"pres.ind.mp.1s","βούλομαι"],[0,"art.f.acc.s","τήν"],[19,"n.acc.s","ἀλήθειαν"],[401,"aor.inf.act","μαθεῖν"],["."]],"tags":["art","d1","mp","aor","inf"]},{"tok":[[0,"art.m.nom.s","ὁ"],[89,"n.nom.s","στρατηγός"],[347,"pres.ind.act.3s","κελεύει"],[0,"art.m.acc.p","τούς"],[61,"n.acc.p","στρατιώτας"],[419,"pres.inf.mp","μάχεσθαι"],["."]],"tags":["art","d1","pres","d2","mp","inf"]},{"tok":[[0,"art.m.nom.s","ὁ"],[110,"n.nom.s","ἄγγελος"],[402,"pres.ind.act.3s","λέγει"],[0,"art.m.acc.p","τούς"],[285,"a.pos.m.acc.p","πολεμίους"],[386,"pres.inf.act","φεύγειν"],["."]],"tags":["art","pres","d2","agg1","inf"]},{"tok":[[376,"pres.ind.act.1s","νομίζω"],[0,"art.m.acc.s","τόν"],[232,"n.acc.s","Σωκράτη"],[264,"a.pos.m.acc.s","σοφόν"],[466,"pres.inf.act","εἶναι"],["."]],"tags":["art","pres","agg1","d3","inf"]},{"tok":[[269,"a.pos.m.acc.s","χαλεπόν"],[466,"pres.ind.act.3s","ἐστί"],[0,"art.f.acc.s","τήν"],[19,"n.acc.s","ἀλήθειαν"],[408,"aor.inf.act","εὑρεῖν"],["."]],"tags":["art","d1","pres","agg1","aor","inf"]},{"tok":[[0,"art.n.nom.s","τό"],[401,"pres.inf.act","μανθάνειν"],[316,"a.pos.m.voc.s","ἡδύ"],[466,"pres.ind.act.3s","ἐστί"],["."]],"tags":["art","pres","agg2","inf"]},{"tok":[[0,"art.m.nom.p","οἱ"],[60,"n.nom.p","πολῖται"],[402,"impf.ind.act.1s","ἔλεγον"],[0,"art.m.acc.s","τόν"],[251,"n.acc.s","βασιλέα"],[405,"aor.inf.act","ἀποθανεῖν"],["."]],"tags":["art","d1","impf","d3","aor","inf"]},{"tok":[[554,"i.avv","ἔξεστι"],[328,"p.x.dat.p","ἡμῖν"],[492,"i.avv","ἐνθάδε"],[390,"pres.inf.act","μένειν"],["."]],"tags":["pres","pron","inf"]},{"tok":[[0,"art.m.nom.s","ὁ"],[207,"n.nom.s","πατήρ"],[376,"pres.ind.act.3s","νομίζει"],[0,"art.m.acc.s","τόν"],[174,"n.acc.s","παῖδα"],[261,"a.pos.m.acc.s","ἀγαθόν"],[466,"pres.inf.act","εἶναι"],["."]],"tags":["art","pres","agg1","d3","inf"]},{"tok":[[477,"i.neg","οὐ"],[467,"pres.ind.mp.1p","δυνάμεθα"],[0,"art.m.acc.p","τούς"],[285,"a.pos.m.acc.p","πολεμίους"],[448,"pres.inf.act","νικᾶν"],["."]],"tags":["art","pres","agg1","mp","contr","inf","mi"]},{"tok":[[387,"pres.ind.act.1s","ἐθέλω"],[329,"p.x.dat.s","σοι"],[344,"pres.inf.act","πιστεύειν"],["."]],"tags":["pres","pron"]},{"tok":[[0,"art.m.nom.s","ὁ"],[251,"n.nom.s","βασιλεύς"],[0,"art.m.dat.p","τοῖς"],[61,"n.dat.p","στρατιώταις"],[133,"n.nom.p","δῶρα"],[469,"pres.ind.act.3s","δίδωσι"],["."]],"tags":["art","d1","pres","d2","d3","mi"]},{"tok":[[469,"aor.ind.act.1s","ἔδωκα"],[0,"art.m.dat.s","τῷ"],[268,"a.pos.m.dat.s","φίλῳ"],[0,"art.n.nom.s","τό"],[138,"n.nom.s","βιβλίον"],["."]],"tags":["art","d2","agg1","aor","mi"]},{"tok":[[0,"art.m.nom.p","οἱ"],[200,"n.nom.p","Ἕλληνες"],[87,"n.acc.p","νόμους"],[470,"aor.ind.act.3p","ἔθεσαν"],["."]],"tags":["art","d2","d3","aor","mi"]},{"tok":[[0,"art.m.nom.s","ὁ"],[89,"n.nom.s","στρατηγός"],[0,"art.m.acc.p","τούς"],[61,"n.acc.p","στρατιώτας"],[520,"i.prep","ἐν"],[0,"art.m.dat.s","τῷ"],[142,"n.dat.s","πεδίῳ"],[471,"aor.ind.act.3s","ἔστησε"],["."]],"tags":["art","d1","d2","prep","aor","mi"]},{"tok":[[472,"pres.ind.act.1s","δείκνυμι"],[329,"p.x.dat.s","σοι"],[0,"art.f.acc.s","τήν"],[128,"n.acc.s","ὁδόν"],["."]],"tags":["art","pres","d2","pron","mi"]},{"tok":[[469,"aor.imp.act.2s","δός"],[328,"p.x.dat.s","μοι"],[0,"art.n.nom.s","τό"],[138,"n.nom.s","βιβλίον"],["."]],"tags":["art","d2","pron","aor","mi"]},{"tok":[[0,"art.f.nom.s","ἡ"],[8,"n.nom.s","στρατιά"],[529,"i.prep","ἐπί"],[0,"art.m.gen.s","τοῦ"],[218,"n.gen.s","ὄρους"],[471,"aor.ind.act.3s","ἔστη"],["."]],"tags":["art","d1","prep","d3","aor","mi"]},{"tok":[[470,"pres.ind.act.1p","τίθεμεν"],[0,"art.n.nom.p","τά"],[137,"n.nom.p","ὅπλα"],["."]],"tags":["art","pres","d2","mi"]},{"tok":[[477,"i.neg","οὐ"],[467,"pres.ind.mp.1s","δύναμαι"],[331,"p.n.nom.s","τοῦτο"],[427,"pres.inf.act","ποιεῖν"],["."]],"tags":["pres","mp","contr","pron","inf","mi"]},{"tok":[[469,"impf.ind.act.3s","ἐδίδου"],[0,"art.m.nom.s","ὁ"],[207,"n.nom.s","πατήρ"],[0,"art.m.dat.p","τοῖς"],[174,"n.dat.p","παισί"],[99,"n.acc.s","σῖτον"],["."]],"tags":["art","d2","impf","d3","mi"]},{"tok":[[390,"pres.subj.act.1p","μένωμεν"],[520,"i.prep","ἐν"],[0,"art.f.dat.s","τῇ"],[238,"n.dat.s","πόλει"],["."]],"tags":["art","pres","prep","d3","cong"]},{"tok":[[478,"i.neg","μή"],[386,"aor.subj.act.2p","φύγητε"],[","],[480,"i.inter","ὦ"],[61,"n.nom.p","στρατιῶται"],["."]],"tags":["d1","pres","aor","cong"]},{"tok":[[0,"art.m.nom.s","ὁ"],[101,"n.nom.s","διδάσκαλος"],[402,"pres.ind.act.3s","λέγει"],[539,"i.cong","ἵνα"],[0,"art.m.nom.p","οἱ"],[65,"n.nom.p","μαθηταί"],[401,"pres.subj.act.3p","μανθάνωσι"],["."]],"tags":["art","d1","pres","d2","cong"]},{"tok":[[543,"i.part","εἴθε"],[0,"art.m.nom.p","οἱ"],[82,"n.nom.p","θεοί"],[375,"pres.opt.act.3p","σῴζοιεν"],[0,"art.f.acc.s","τήν"],[238,"n.acc.s","πόλιν"],["."]],"tags":["art","pres","d2","d3","cong"]},{"tok":[[0,"art.m.nom.s","ὁ"],[89,"n.nom.s","στρατηγός"],[0,"art.m.acc.p","τούς"],[61,"n.acc.p","στρατιώτας"],[360,"aor.ind.act.3s","ἔπεμψε"],[539,"i.cong","ἵνα"],[0,"art.f.acc.s","τήν"],[21,"n.acc.s","γέφυραν"],[370,"pres.opt.act.3p","φυλάττοιεν"],["."]],"tags":["art","d1","pres","d2","aor","cong"]},{"tok":[[0,"art.m.nom.p","οἱ"],[60,"n.nom.p","πολῖται"],[0,"art.n.nom.p","τά"],[215,"n.nom.p","τείχη"],[370,"pres.ind.act.3p","φυλάττουσι"],[540,"i.cong","ὅπως"],[0,"art.f.nom.s","ἡ"],[238,"n.nom.s","πόλις"],[375,"pres.subj.mp.3s","σῴζηται"],["."]],"tags":["art","d1","pres","mp","d3","cong"]},{"tok":[[0,"art.m.nom.s","ὁ"],[110,"n.nom.s","ἄγγελος"],[402,"aor.ind.act.3s","εἶπε"],[542,"i.cong","ὅτι"],[0,"art.m.nom.p","οἱ"],[285,"a.pos.m.nom.p","πολέμιοι"],[386,"pres.opt.act.3p","φεύγοιεν"],["."]],"tags":["art","pres","d2","agg1","aor","cong"]},{"tok":[[402,"pres.ind.act.3s","λέγει"],[542,"i.cong","ὅτι"],[0,"art.m.nom.s","ὁ"],[251,"n.nom.s","βασιλεύς"],[405,"aor.ind.act.3s","ἀπέθανε"],["."]],"tags":["art","pres","d3","aor","cong"]},{"tok":[[335,"p.n.nom.s","τί"],[427,"pres.subj.act.1p","ποιῶμεν"],[";"]],"tags":["pres","contr","rel","cong"]},{"tok":[[374,"aor.subj.pass.1p","πεισθῶμεν"],[0,"art.m.dat.p","τοῖς"],[87,"n.dat.p","νόμοις"],["."]],"tags":["art","d2","aor","cong"]},{"tok":[[544,"i.cong","ὅτε"],[0,"art.m.nom.s","ὁ"],[251,"n.nom.s","βασιλεύς"],[405,"aor.ind.act.3s","ἀπέθανε"],[","],[0,"art.m.nom.p","οἱ"],[73,"n.nom.p","Πέρσαι"],[424,"aor.ind.pass.3p","ἐφοβήθησαν"],["."]],"tags":["art","d1","contr","d3","aor","sub"]},{"tok":[[545,"i.cong","ἐπεί"],[0,"art.m.nom.p","οἱ"],[285,"a.pos.m.nom.p","πολέμιοι"],[386,"aor.ind.act.1s","ἔφυγον"],[","],[0,"art.m.nom.p","οἱ"],[200,"n.nom.p","Ἕλληνες"],[521,"i.prep","εἰς"],[0,"art.f.acc.s","τήν"],[238,"n.acc.s","πόλιν"],[413,"aor.ind.act.1s","ἦλθον"],["."]],"tags":["art","d1","agg1","prep","d3","aor","sub"]},{"tok":[[547,"i.cong","ὅταν"],[0,"art.m.nom.s","ὁ"],[207,"n.nom.s","πατήρ"],[413,"aor.subj.act.3s","ἔλθῃ"],[","],[399,"pres.ind.act.1p","χαίρομεν"],["."]],"tags":["art","pres","d3","aor","cong","sub"]},{"tok":[[0,"art.m.nom.s","ὁ"],[90,"n.nom.s","στρατός"],[491,"i.avv","οὕτως"],[419,"impf.ind.mp.3s","ἐμάχετο"],[549,"i.cong","ὥστε"],[0,"art.m.acc.p","τούς"],[285,"a.pos.m.acc.p","πολεμίους"],[448,"aor.inf.act","νικῆσαι"],["."]],"tags":["art","pres","d2","agg1","mp","impf","contr","aor","inf","sub"]},{"tok":[[0,"art.m.nom.p","οἱ"],[60,"n.nom.p","πολῖται"],[399,"pres.ind.act.3p","χαίρουσι"],[542,"i.cong","ὅτι"],[0,"art.f.nom.s","ἡ"],[238,"n.nom.s","πόλις"],[375,"aor.ind.pass.3s","ἐσώθη"],["."]],"tags":["art","d1","pres","d3","aor","cong","sub"]},{"tok":[[548,"i.cong","ἐάν"],[0,"art.f.acc.s","τήν"],[19,"n.acc.s","ἀλήθειαν"],[402,"pres.subj.act.2s","λέγῃς"],[","],[344,"fut.ind.act.1p","πιστεύσομεν"],[329,"p.x.dat.s","σοι"],["."]],"tags":["art","d1","pres","pron","fut","cong","sub"]},{"tok":[[550,"i.cong","πρίν"],[419,"pres.inf.mp","μάχεσθαι"],[","],[0,"art.m.nom.p","οἱ"],[61,"n.nom.p","στρατιῶται"],[348,"aor.ind.act.3p","ἔθυσαν"],[0,"art.m.dat.p","τοῖς"],[82,"n.dat.p","θεοῖς"],["."]],"tags":["art","d1","d2","mp","aor","inf","sub"]},{"tok":[[551,"i.cong","ἕως"],[0,"art.m.nom.s","ὁ"],[91,"n.nom.s","ἥλιος"],[520,"i.prep","ἐν"],[0,"art.m.dat.s","τῷ"],[92,"n.dat.s","οὐρανῷ"],[466,"pres.ind.act.3s","ἐστί"],[","],[390,"pres.ind.act.1p","μένομεν"],["."]],"tags":["art","pres","d2","prep","sub"]},{"tok":[[552,"i.cong","διότι"],[266,"a.pos.m.nom.s","ἄδικος"],[466,"impf.ind.act.1s","ἦν"],[","],[0,"art.m.nom.s","ὁ"],[120,"n.nom.s","τύραννος"],[532,"i.prep","ὑπό"],[0,"art.m.gen.p","τῶν"],[60,"n.gen.p","πολιτῶν"],[439,"impf.ind.mp.3s","ἐμισεῖτο"],["."]],"tags":["art","d1","d2","agg1","prep","mp","impf","contr","sub"]},{"tok":[[0,"art.m.nom.s","ὁ"],[81,"n.nom.s","δοῦλος"],[342,"pf.ind.mp.3s","λέλυται"],["."]],"tags":["art","d2","mp","perf"]},{"tok":[[343,"pf.ind.act.1s","πεπαίδευκα"],[0,"art.m.acc.p","τούς"],[174,"n.acc.p","παῖδας"],["."]],"tags":["art","d3","perf"]},{"tok":[[0,"art.m.nom.s","ὁ"],[555,"i.part","μέν"],[89,"n.nom.s","στρατηγός"],[386,"pres.ind.act.3s","φεύγει"],[","],[0,"art.m.nom.p","οἱ"],[556,"i.part","δέ"],[61,"n.nom.p","στρατιῶται"],[390,"pres.ind.act.3p","μένουσι"],["."]],"tags":["art","d1","pres","d2","perf"]},{"tok":[[473,"pf.ind.act.1s","οἶδα"],[542,"i.cong","ὅτι"],[341,"p.n.nom.s","οὐδέν"],[473,"pf.ind.act.1s","οἶδα"],["."]],"tags":["rel","cong","perf"]},{"tok":[[0,"art.m.nom.p","οἱ"],[60,"n.nom.p","πολῖται"],[399,"pres.ind.act.3p","χαίρουσι"],["·"],[0,"art.f.nom.s","ἡ"],[557,"i.part","γάρ"],[39,"n.nom.s","εἰρήνη"],[414,"pf.ind.act.3s","γέγονε"],["."]],"tags":["art","d1","pres","perf"]},{"tok":[[331,"p.n.nom.p","ταῦτα"],[558,"i.part","οὖν"],[427,"aor.ind.act.1p","ἐποιήσαμεν"],["."]],"tags":["contr","pron","aor","perf"]},{"tok":[[538,"i.cong","εἰ"],[331,"p.n.nom.p","ταῦτα"],[402,"impf.ind.act.2s","ἔλεγες"],[","],[344,"impf.ind.act.1s","ἐπίστευον"],[559,"i.part","ἄν"],[329,"p.x.dat.s","σοι"],["."]],"tags":["impf","pron","cong","perf"]},{"tok":[[349,"pres.opt.act.1s","ἀκούοιμι"],[559,"i.part","ἄν"],[0,"art.m.acc.p","τούς"],[78,"n.acc.p","λόγους"],[0,"art.m.gen.s","τοῦ"],[264,"a.pos.m.gen.s","σοφοῦ"],["."]],"tags":["art","pres","d2","agg1","cong","perf"]},{"tok":[[0,"art.m.nom.s","ὁ"],[207,"n.nom.s","πατήρ"],[0,"art.f.acc.s","τήν"],[40,"n.acc.s","ἐπιστολήν"],[359,"pf.ind.act.3s","γέγραφε"],["."]],"tags":["art","d1","d3","perf"]},{"tok":[[448,"pf.ind.act.1p","νενικήκαμεν"],["."]],"tags":["contr","perf"]},{"tok":[[0,"art.m.nom.p","οἱ"],[557,"i.part","γάρ"],[82,"n.nom.p","θεοί"],[326,"a.pos.m.acc.s","πάντα"],[473,"pf.ind.act.3p","ἴσασι"],["."]],"tags":["art","d2","agg2","perf"]}]};
 ;
 /* HERMENEUS — applicazione: percorso guidato a unità e lezioni, palestra, teoria, lessico, profilo.
@@ -5303,6 +5427,7 @@ const ORDER = TOPICS.map((t) => t.id);
 const UNITS = C.UNITS;
 const FLAT = LS.FLAT;
 const SITE = !!window.HERM_SITE;
+const SV = window.HermSave;
 
 /* ---------- Utilità ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -5379,48 +5504,65 @@ const I = {
 const MARK = '<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="1" y="1" width="62" height="62" rx="18" fill="#7C5CFF"/><text x="33" y="45" text-anchor="middle" font-family="GFS Didot, Gentium Plus, serif" font-size="36" fill="#FFFFFF">Ἑ</text></svg>';
 
 /* ---------- Ermes, la guida ---------- */
-// personaggio da cartone: testa grande, petaso viola con le ali, mantello color menta.
-// Umori: idle, happy, think, sad, cheer
+// Hermes, dio dei messaggeri e degli interpreti, in versione da cartone: elmo alato, riccioli, tunica e mantello,
+// caduceo e sandali alati. Umori: idle, happy, think, sad, cheer
 let ermesN = 0;
 function ermes(mood = 'idle', size = 96) {
-  const D = '#2B2440', SKIN = '#FFD9BE', HAT = '#7C5CFF', HAT2 = '#9B82FF', CAPE = '#2DB57E', CAPE2 = '#1FA06C', HAIR = '#6B4A3A', W = '#FFFFFF';
-  const ln = (d, w = 2.2, col = D) => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
-  const eye = (x, y, rx = 4.2, ry = 5.2) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${D}"/><circle cx="${x + 1.4}" cy="${y - 1.8}" r="1.6" fill="${W}"/><circle cx="${x - 1.2}" cy="${y + 1.6}" r=".7" fill="${W}"/>`;
-  const eyes = {
-    idle: eye(41, 60) + eye(59, 60),
-    happy: ln('M36.5 61q4.5-5.5 9 0M54.5 61q4.5-5.5 9 0', 2.8),
-    cheer: ln('M36 61.5q5-6.5 10 0M54 61.5q5-6.5 10 0', 3) + ln('M35 52.5q5-3 10 0M55 52.5q5-3 10 0', 2),
-    think: eye(42.5, 58.5, 3.8, 4.8) + eye(60.5, 58.5, 3.8, 4.8) + ln('M54.5 50.5q5-3.4 10 .2', 2.2),
-    sad: eye(41, 61.5, 3.8, 4.6) + eye(59, 61.5, 3.8, 4.6) + ln('M35.5 55.6l9-3M64.5 55.6l-9-3', 2.2),
+  const O = '#2B2440', SK = '#FFD2AE', SK2 = '#F2B48C', HAIR = '#5B3A2E', GOLD = '#FFC233', GOLD2 = '#E09A12', W = '#FFFFFF', W2 = '#E4DDFF', CAPE = '#7C5CFF', CAPE2 = '#5B3FD6', SNAKE = '#2DB57E';
+  const st = (w = 2.2) => `stroke="${O}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
+  const ln = (d, w = 2.4, col = O) => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // braccio: contorno scuro e pelle sopra, così resta leggibile anche piccolo
+  const arm = (d) => `<path d="${d}" fill="none" stroke="${O}" stroke-width="9.4" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${SK}" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const eye = (x, y, rx = 4.4, ry = 5.6) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${O}"/><circle cx="${x + 1.5}" cy="${y - 2}" r="1.7" fill="${W}"/><circle cx="${x - 1.3}" cy="${y + 1.8}" r=".8" fill="${W}"/>`;
+  const face = {
+    idle: eye(49, 58) + eye(71, 58) + ln('M44.5 50.4q4.5-2.4 9 0M66.5 50.4q4.5-2.4 9 0', 2) + ln('M54.5 68.6q5.5 4 11 0'),
+    happy: ln('M44.5 59q4.5-5.4 9 0M66.5 59q4.5-5.4 9 0', 2.8) + ln('M44.5 49.6q4.5-2.6 9 0M66.5 49.6q4.5-2.6 9 0', 2) + `<path d="M52.8 66.8q7.2 8.6 14.4 0z" fill="#7A2E45" ${st(1.6)}/><path d="M56 70.6q4 2.2 8 0" fill="none" stroke="#FF8FAB" stroke-width="2.2" stroke-linecap="round"/>`,
+    cheer: ln('M44 59.4q5-6.2 10 0M66 59.4q5-6.2 10 0', 3) + ln('M44 48.2q5-3.4 10 0M66 48.2q5-3.4 10 0', 2) + `<path d="M51.4 65.8q8.6 11.4 17.2 0z" fill="#7A2E45" ${st(1.6)}/><path d="M55.4 71.4q4.6 2.8 9.2 0" fill="none" stroke="#FF8FAB" stroke-width="2.6" stroke-linecap="round"/>`,
+    think: eye(50.5, 57, 4, 5.2) + eye(72.5, 57, 4, 5.2) + ln('M45 51q4.4-1.4 8.8.4M66.6 48.2q4.8-3.2 9.4.4', 2) + ln('M56 69.4l8.6-1.6'),
+    sad: eye(49, 59.4, 4, 5) + eye(71, 59.4, 4, 5) + ln('M44.6 53.4l8.6-3M75.4 53.4l-8.6-3', 2) + ln('M54.6 71q5.4-3.8 10.8 0'),
   }[mood] || '';
-  const mouth = {
-    idle: ln('M44.5 71q5.5 4 11 0', 2.4),
-    happy: `<path d="M42.5 69.5q7.5 9 15 0z" fill="#7A2E45"/><path d="M45.5 73.6q4.5 2.6 9 0" fill="none" stroke="#FF8FAB" stroke-width="2.4" stroke-linecap="round"/>`,
-    cheer: `<path d="M41 68.5q9 12 18 0z" fill="#7A2E45"/><path d="M45 74.4q5 3.2 10 0" fill="none" stroke="#FF8FAB" stroke-width="2.8" stroke-linecap="round"/>`,
-    think: ln('M46 72.5l8.5-1.4', 2.4),
-    sad: ln('M44.5 74q5.5-4 11 0', 2.4),
-  }[mood] || '';
-  const id = 'ermesHat' + (++ermesN);
+  // posa del braccio libero (a sinistra di chi guarda); l'altro tiene il caduceo
+  const freeArm = { happy: 'M44 82C37 80 32 76 29.4 71', cheer: 'M44 81C36 77 30 71 26.6 63.4', think: 'M45 82C47 79 50 76 53 73.6', sad: 'M44 82C41 88 39 93 39 98', idle: 'M44 82C40 87 38 92 38 97' }[mood] || 'M44 82C40 87 38 92 38 97';
+  const hand = { happy: [28.6, 69.4], cheer: [26, 61.6], think: [54, 72.6], sad: [39, 99.6], idle: [38, 98.6] }[mood] || [38, 98.6];
+  const id = 'ermes' + (++ermesN);
   const cls = mood === 'cheer' ? 'cheer' : 'bob';
-  const wing = 'M30 35c-7-6.5-16-8-24-5 6.5 1 11 2.8 14 5-6.5 0-10.5 1.6-13.5 4.4 7.5-1.2 14.5-1.2 23.5.6z';
-  const feathers = 'M22.5 33.6l-7-1.4M23.6 37.3l-9-.4';
-  return `<svg class="ermes ${cls}" width="${size}" height="${size}" viewBox="0 0 100 100" role="img" aria-label="Ermes, la tua guida">
-    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${HAT2}"/><stop offset="1" stop-color="${HAT}"/></linearGradient></defs>
+  const wing = 'M34 39C26 31 16 25 5 23c6 4.6 9.4 7.6 11.4 10.6C10.4 32.6 6.6 33.8 3.6 36.2c7.2 1.4 12.6 2.2 16.6 3-5 1.2-8.6 3.4-10.6 6.2 8-.8 16.4-2.8 24.4-2.8z';
+  const feathers = 'M27 32.6l-9.6-3.6M27.4 37.4l-11-1.4M27.6 41.4l-9.4 1.6';
+  const sandal = (x) => `<path d="M${x - 6} 114.6h12c0-2.6-2.4-4-6-4s-6 1.4-6 4z" fill="${HAIR}" ${st(1.6)}/><path d="M${x - 5} 109c-3.4-1.6-6.4-1.6-8.4 0 2 .8 3.4 1.6 4 2.6-1.8 0-3 .6-3.8 1.6 2.8.4 5.4.2 8.2-.6z" fill="${W}" ${st(1.2)}/>`;
+  return `<svg class="ermes ${cls}" width="${size}" height="${size}" viewBox="0 0 120 120" role="img" aria-label="Ermes, la tua guida">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD866"/><stop offset="1" stop-color="${GOLD}"/></linearGradient></defs>
+    <ellipse cx="60" cy="116.4" rx="24" ry="3.2" fill="${O}" opacity=".12"/>
     <g class="figure">
-      <path d="M22 100c1.5-13 12.5-21 28-21s26.5 8 28 21z" fill="${CAPE}"/>
-      <path d="M50 79c-6 0-11 1.4-15 3.8L50 93l15-10.2C61 80.4 56 79 50 79z" fill="${CAPE2}"/>
-      <circle cx="62" cy="84" r="3.2" fill="#FFC233" stroke="#E0A000" stroke-width="1"/>
-      <ellipse cx="25.5" cy="62" rx="4.4" ry="5.6" fill="${SKIN}"/><ellipse cx="74.5" cy="62" rx="4.4" ry="5.6" fill="${SKIN}"/>
-      <circle cx="50" cy="60" r="25" fill="${SKIN}"/>
-      <path d="M26 54c2-10 9-15 13-15 3 0 1 5 4 5s3-6 7-6 4 6 7 6 1-5 4-5c4 0 11 5 13 15-3-4-7-5-9-5-1 3-4 4-6 3-2 2-6 3-9 3s-7-1-9-3c-2 1-5 0-6-3-2 0-6 1-9 5z" fill="${HAIR}"/>
-      <circle cx="35" cy="68.5" r="4.4" fill="#FF8FAB" opacity=".55"/><circle cx="65" cy="68.5" r="4.4" fill="#FF8FAB" opacity=".55"/>
-      ${eyes}${mouth}
-      <g transform="rotate(-14 30 37)"><g class="wing l"><path d="${wing}" fill="${W}" stroke="#9B82FF" stroke-width="1.8"/>${ln(feathers, 1.5, '#9B82FF')}</g></g>
-      <g transform="translate(100 0) scale(-1 1)"><g transform="rotate(-14 30 37)"><g class="wing l"><path d="${wing}" fill="${W}" stroke="#9B82FF" stroke-width="1.8"/>${ln(feathers, 1.5, '#9B82FF')}</g></g></g>
-      <path d="M31 40c0-13 8.5-21 19-21s19 8 19 21z" fill="url(#${id})"/>
-      <path d="M31.6 35.6c12 3.2 24.8 3.2 36.8 0l.6 4.4c-12.6 3.4-25.4 3.4-38 0z" fill="#FFC233"/>
-      <ellipse cx="50" cy="41.5" rx="33" ry="7" fill="${HAT}"/>
-      <ellipse cx="44" cy="27" rx="5" ry="2.6" fill="#FFFFFF" opacity=".35" transform="rotate(-20 44 27)"/>
+      <path d="M43 80C33 88 29 99 31 110l14-3z" fill="${CAPE}" ${st()}/>
+      <path d="M50 104v8M70 104v8" stroke="${O}" stroke-width="8.6" stroke-linecap="round"/><path d="M50 104v8M70 104v8" stroke="${SK}" stroke-width="4.6" stroke-linecap="round"/>
+      ${sandal(50)}${sandal(70).replace(/M65 109c-3.4-1.6-6.4-1.6-8.4 0 2 .8 3.4 1.6 4 2.6-1.8 0-3 .6-3.8 1.6 2.8.4 5.4.2 8.2-.6z/, 'M75 109c3.4-1.6 6.4-1.6 8.4 0-2 .8-3.4 1.6-4 2.6 1.8 0 3 .6 3.8 1.6-2.8.4-5.4.2-8.2-.6z')}
+      <path d="M45 77C42 87 40 97 39 106h42c-1-9-3-19-6-29z" fill="${W}" ${st()}/>
+      <path d="M47 90c4 6 3 12 2 16M73 90c-4 6-3 12-2 16M60 92v14" fill="none" stroke="${W2}" stroke-width="2" stroke-linecap="round"/>
+      <path d="M41.4 89.6h37.2l.8 5.2H40.6z" fill="${GOLD}" ${st(1.8)}/>
+      <path d="M72 76.4l7.4 3.4-25 23.4-6.8-3.6z" fill="${CAPE}" ${st(1.8)}/>
+      <circle cx="74.6" cy="79" r="3" fill="${GOLD}" ${st(1.4)}/>
+      ${arm(freeArm)}<circle cx="${hand[0]}" cy="${hand[1]}" r="4.6" fill="${SK}" ${st(1.8)}/>
+      <g class="caduceus">
+        <path d="M90 62v52" stroke="${O}" stroke-width="5.6" stroke-linecap="round"/><path d="M90 62v52" stroke="${GOLD}" stroke-width="2.8" stroke-linecap="round"/>
+        <path d="M84 70.6c11 3.4 11 7.8 0 11.2s-11 7.8 0 11.2M96 70.6c-11 3.4-11 7.8 0 11.2s11 7.8 0 11.2" fill="none" stroke="${O}" stroke-width="4.6" stroke-linecap="round"/>
+        <path d="M84 70.6c11 3.4 11 7.8 0 11.2s-11 7.8 0 11.2M96 70.6c-11 3.4-11 7.8 0 11.2s11 7.8 0 11.2" fill="none" stroke="${SNAKE}" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M89 63c-4-4-9-5-13-3.4 3 1.4 5 2.6 6 4-3 0-4.6 1-5.6 2.4 4.4.4 8.6-.4 12.6-2.2zM91 63c4-4 9-5 13-3.4-3 1.4-5 2.6-6 4 3 0 4.6 1 5.6 2.4-4.4.4-8.6-.4-12.6-2.2z" fill="${W}" ${st(1.4)}/>
+        <circle cx="90" cy="59.6" r="3.6" fill="${GOLD}" ${st(1.6)}/>
+      </g>
+      ${arm('M75 82C80 86 83 88 86.6 89')}<circle cx="88.4" cy="89.2" r="4.6" fill="${SK}" ${st(1.8)}/>
+      <path d="M53 73h14v6H53z" fill="${SK2}"/>
+      <ellipse cx="33.4" cy="58" rx="4.2" ry="5.4" fill="${SK}" ${st(1.8)}/><ellipse cx="86.6" cy="58" rx="4.2" ry="5.4" fill="${SK}" ${st(1.8)}/>
+      <circle cx="60" cy="54" r="27" fill="${SK}" ${st()}/>
+      <path d="M34.4 51c-1.6 4-1 8.4 1.4 11.2 1-3.4 1.2-6.8.4-10.2M85.6 51c1.6 4 1 8.4-1.4 11.2-1-3.4-1.2-6.8-.4-10.2" fill="${HAIR}" ${st(1.4)}/>
+      <path d="M34 45c8-3.4 44-3.4 52 0v3c-2.6 4.4-6.4 4.4-8.6 0-2.6 4.4-6.4 4.4-8.6 0-2.6 4.4-6.4 4.4-8.6 0-2.6 4.4-6.4 4.4-8.6 0-2.6 4.4-6.4 4.4-8.6 0-2.6 4.4-6.6 4.4-9 0z" fill="${HAIR}" ${st(1.6)}/>
+      <circle cx="42.4" cy="65.6" r="4.4" fill="#FF8FAB" opacity=".5"/><circle cx="77.6" cy="65.6" r="4.4" fill="#FF8FAB" opacity=".5"/>
+      ${ln('M60.6 61.4q-1.8 3.4.4 4.6', 1.8)}
+      ${face}
+      <g class="wing l">${`<path d="${wing}" fill="${W}" ${st(1.8)}/>`}${ln(feathers, 1.5, '#9B82FF')}</g>
+      <g transform="translate(120 0) scale(-1 1)"><g class="wing l"><path d="${wing}" fill="${W}" ${st(1.8)}/>${ln(feathers, 1.5, '#9B82FF')}</g></g>
+      <path d="M33 45.4C33.6 29 45 19.6 60 19.6S86.4 29 87 45.4C79 41.4 70 39.6 60 39.6s-19 1.8-27 5.8z" fill="url(#${id})" ${st()}/>
+      <path d="M33 45.4c8-4 17-5.8 27-5.8s19 1.8 27 5.8l.4 4.2c-8.2-3.8-17.4-5.4-27.4-5.4s-19.2 1.6-27.4 5.4z" fill="${GOLD2}" ${st(1.8)}/>
+      <path d="M48 27.6c3.4-2.6 7.4-3.6 11-3.6" fill="none" stroke="#FFF3C4" stroke-width="3" stroke-linecap="round"/>
     </g>
   </svg>`;
 }
@@ -5430,9 +5572,9 @@ const say = (text, mood = 'happy', size = 76) => `<div class="say">${ermes(mood,
 const KEY = 'hermeneus.v1';
 const DEFAULT = () => ({
   v: 2, onboarded: false, name: '', topics: [], goal: 50, xp: 0, days: {}, streak: 0, lastDay: null, shields: 0,
-  mastery: {}, mistakes: [], badges: {}, vocab: {}, recent: [], genSaved: [],
+  mastery: {}, mistakes: [], badges: {}, vocab: {}, recent: [], genSaved: [], backupAt: 0, savedAt: 0,
   course: { unlocked: 0, stars: {}, times: {} },
-  prac: { unit: null, type: 'misto', wide: false },
+  prac: { unit: null, type: 'misto', wide: false, level: 'media' },
   stats: { answered: 0, correct: 0, sessions: 0, perfect: 0, forms: 0, typedOK: 0, translated: 0, genSeen: 0, types: {}, clearedReview: 0, accentOK: 0, lessons: 0 },
   settings: { sound: true, voice: true, input: 'tiles', accents: 'lenient', theme: 'auto', gen: true, online: true },
 });
@@ -5449,7 +5591,8 @@ function load() {
     syncTopics();
   } catch (e) { /* archiviazione non disponibile */ }
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignora */ } }
+let saveFailed = false;
+function save() { try { S.savedAt = Date.now(); localStorage.setItem(KEY, JSON.stringify(S)); saveFailed = false; } catch (e) { saveFailed = true; } }
 function applyTheme() {
   const r = document.documentElement;
   if (S.settings.theme === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', S.settings.theme);
@@ -5669,6 +5812,14 @@ function startLesson(idx, o = {}) {
   if (teach && f.li === 0 && f.unit.say) items = [{ type: 'teach', card: { say: f.unit.say, intro: true }, topic: f.unit.id }].concat(items);
   begin({ kind: 'lesson', idx, items, title: f.lesson.title, test: !!f.lesson.test });
 }
+// difficoltà delle frasi in palestra: lunghezza, tessere intruse, risposta scritta
+const LEVELS = {
+  facile: { label: 'Facile', desc: 'Frasi brevi, fino a 4 parole, con una sola tessera in più.', maxWords: 4, simple: true, extra: 1 },
+  media: { label: 'Media', desc: 'Frasi da 3 a 6 parole, con tre tessere in più per confonderti.', minWords: 3, maxWords: 6, extra: 3 },
+  difficile: { label: 'Difficile', desc: 'Frasi lunghe, da 5 parole in su, con cinque tessere in più.', minWords: 5, extra: 5 },
+  esperto: { label: 'Esperto', desc: 'Frasi lunghe da scrivere da te, con la tastiera greca: niente tessere.', minWords: 6, typed: true },
+};
+const levelOf = () => (SES && SES.kind === 'practice' && LEVELS[SES.level]) || null;
 const MIXES = {
   misto: ['frase', 'analizza', 'frase', 'abbina', 'frase', 'scrivi', 'frase', 'completa', 'frase', 'accorda'],
   frasi: Array(10).fill('frase'),
@@ -5688,13 +5839,13 @@ function startPractice(mode) {
     // le traduzioni lavorano su tutto ciò che è aperto, con l'accento sull'ultima unità; il resto sull'argomento scelto
     const latest = S.topics[S.topics.length - 1];
     const unit = mode === 'alfabeto' ? 'alf' : ['gr_it', 'it_gr', 'nuove'].includes(mode) ? latest : p.unit && T.has(p.unit) ? p.unit : latest;
-    items = LS.buildPractice({ T, focus: unit, mix: MIXES[mode] || MIXES[p.type] || MIXES.misto, wide: p.wide, genShare: mode === 'nuove' ? 1 : 0.5, gen: S.settings.gen, avoid: S.recent });
+    items = LS.buildPractice({ T, focus: unit, mix: MIXES[mode] || MIXES[p.type] || MIXES.misto, wide: p.wide, genShare: mode === 'nuove' ? 1 : 0.5, gen: S.settings.gen, avoid: S.recent, level: mode === 'alfabeto' ? null : LEVELS[p.level] });
   }
   if (!items.length) { toast(mode === 'review' ? 'Nessun errore da ripassare: ottimo!' : 'Non ci sono ancora esercizi per questa scelta.'); return; }
-  begin({ kind: 'practice', mode, items, title: 'Palestra' });
+  begin({ kind: 'practice', mode, items, title: 'Palestra', level: mode === 'review' ? null : S.prac.level });
 }
 function begin(o) {
-  SES = Object.assign({ i: 0, combo: 0, best: 0, xp: 0, ok: 0, ko: 0, start: Date.now(), cur: null, done: false, requeued: 0, shownTheory: {} }, o);
+  SES = Object.assign({ backY: window.scrollY, backView: VIEW, i: 0, combo: 0, best: 0, xp: 0, ok: 0, ko: 0, start: Date.now(), cur: null, done: false, requeued: 0, shownTheory: {} }, o);
   openOverlay();
   renderItem();
 }
@@ -5719,7 +5870,7 @@ function renderItem() {
   const it = SES.items[SES.i];
   if (!it) return finishSession();
   setProgress(); setCombo();
-  SES.cur = { it, answered: false, chosen: [], picked: null, inputMode: S.settings.input === 'keys' ? 'keys' : 'tiles' };
+  SES.cur = { it, answered: false, chosen: [], picked: null, inputMode: S.settings.input === 'keys' || (levelOf() && levelOf().typed) ? 'keys' : 'tiles' };
   const [ico, label] = KIND[it.type] || [I.book, ''];
   let html = it.type === 'teach' ? '' : `<div class="kind">${ico}<span>${it.quiz ? 'Verifica veloce' : label}</span>${it.review ? ' <span class="tag">ripasso</span>' : ''}${it.requeued ? ' <span class="tag">riproviamo</span>' : ''}${it.s && it.s.src === 'gen' ? ' <span class="tag">frase nuova</span>' : ''}</div>`;
   html += ({
@@ -5816,8 +5967,10 @@ function greekTiles(s) {
   const have = new Set(tiles.map((t) => G.strict(t.label)));
   const T = sel();
   const dis = [];
-  for (const t of shuffle(toks)) {
-    if (dis.length >= 3) break;
+  const n = levelOf() ? levelOf().extra ?? 3 : 3;
+  // più giri sulle stesse parole quando il livello chiede molte tessere intruse
+  for (const t of shuffle(toks).concat(shuffle(toks))) {
+    if (dis.length >= n) break;
     if (!t.a || !['n', 'v', 'a', 'art', 'p'].includes(t.a.e.k) || t.a.key === 'lemma') continue;
     const head = t.a.key.split('.').slice(0, 2).join('.');
     const alts = shuffle(formsUsable(t.a.e, T).filter((f) => !have.has(G.strict(f.f)) && f.key.split('.').slice(0, 2).join('.') === head));
@@ -5832,8 +5985,9 @@ function italianTiles(s) {
   const have = new Set(words.map((w) => w.toLowerCase()));
   const extra = [];
   const pool = shuffle(BANK.filter((b) => b !== s)).slice(0, 60).flatMap((b) => b.it[0].replace(/[.,;:!?«»"]/g, ' ').split(/\s+/)).filter((w) => w.length > 3 && !have.has(w.toLowerCase()));
-  for (const w of shuffle(IT_FUNC)) { if (extra.length >= 1) break; if (!have.has(w)) { extra.push(w); have.add(w); } }
-  for (const w of pool) { if (extra.length >= 3) break; if (!have.has(w.toLowerCase())) { extra.push(w.toLowerCase()); have.add(w.toLowerCase()); } }
+  const n = levelOf() ? levelOf().extra ?? 3 : 3;
+  for (const w of shuffle(IT_FUNC)) { if (extra.length >= Math.min(1, n)) break; if (!have.has(w)) { extra.push(w); have.add(w); } }
+  for (const w of pool) { if (extra.length >= n) break; if (!have.has(w.toLowerCase())) { extra.push(w.toLowerCase()); have.add(w.toLowerCase()); } }
   return shuffle(tiles.concat(extra.map((w) => ({ label: w, distractor: true }))));
 }
 function refreshAnswer() {
@@ -6202,13 +6356,14 @@ function finishSession() {
     <div class="stats3"><div class="stat" style="--c:var(--star)"><small>XP</small><b>+${SES.xp + bonus}</b></div><div class="stat" style="--c:var(--good)"><small>Precisione</small><b>${Math.round(acc * 100)}%</b></div><div class="stat" style="--c:var(--info)"><small>Tempo</small><b>${mins}′</b></div></div>
     <p class="note">${goalDone ? `Obiettivo di oggi raggiunto: ${todayXP()} XP.` : `Oggi ${todayXP()} di ${S.goal} XP.`}</p>
     ${rankUp ? `<div class="card">Nuovo grado: ${gr(rankOf(S.xp).r.name)} — ${esc(rankOf(S.xp).r.tr)}</div>` : ''}
-    ${won.map((b) => `<div class="card">${medal(b.id, true)}<b lang="grc">${esc(b.name)}</b><div class="note">${esc(b.desc)}</div></div>`).join('')}</div>`;
+    ${won.map((b) => `<div class="card">${medal(b.id, true)}<b lang="grc">${esc(b.name)}</b><div class="note">${esc(b.desc)}</div></div>`).join('')}
+    ${SES.kind === 'lesson' && (S.stats.lessons === 1 || (S.stats.lessons >= 3 && Date.now() - (S.backupAt || 0) > 7 * 864e5)) ? `<div class="card save-nudge"><b>Metti al sicuro i tuoi progressi</b><p class="note">Si salvano da soli su questo dispositivo. Con il codice di salvataggio li ritrovi anche su un altro telefono.</p><button class="btn small ghost" data-act="saveCode">${I.keys}Mostra il codice</button></div>` : ''}</div>`;
   $('#ovFootWrap').className = 'ov-foot';
   const again = !passed && SES.kind === 'lesson' ? `<button class="btn ghost" data-act="retry">Riprova</button>` : S.mistakes.length && SES.kind === 'practice' && SES.mode !== 'review' ? '<button class="btn ghost" data-act="startReview">Ripassa gli errori</button>' : '';
   $('#ovFoot').innerHTML = `<div class="foot-row">${again}<button class="btn ${passed ? 'ok' : ''}" data-act="endSession">Continua</button></div>`;
   setTimeout(() => { const b = $('#ovFoot .btn:last-child'); if (b) b.focus(); }, 60);
 }
-function endSession() { const wasLesson = SES && SES.kind === 'lesson'; SES = null; closeOverlay(); if (wasLesson) VIEW = 'path'; render(); flushToasts(); if (wasLesson) setTimeout(scrollToCurrent, 80); }
+function endSession() { const y = SES ? SES.backY : 0; SES = null; closeOverlay(); render(); window.scrollTo(0, y); flushToasts(); }
 
 /* ---------- Ripetizione dilazionata ---------- */
 const BOX_DAYS = [0, 1, 2, 4, 8, 16];
@@ -6370,6 +6525,7 @@ function render() {
     <aside class="side" aria-label="I tuoi progressi">${sidePanel()}</aside></div>
     <nav class="tabs" aria-label="Sezioni">${NAV.map(([v, ic, it]) => `<button data-act="tab" data-v="${v}" ${cur === v ? 'aria-current="page"' : ''}>${ic}<span>${it}</span></button>`).join('')}</nav>`;
   if (VIEW === 'words') bindWords();
+  requestAnimationFrame(updateJump);
 }
 function ringSvg(p, label) {
   const r = 27, c = 2 * Math.PI * r, v = Math.max(0, Math.min(1, p));
@@ -6401,7 +6557,10 @@ function viewPath() {
   const cur = currentIdx();
   const cf = FLAT[cur];
   const greet = S.name ? `Χαῖρε, ${esc(S.name)}! ` : 'Χαῖρε! ';
-  let h = `<div class="hello">${ermes('happy', 72)}<div class="bubble">${greet}${cf.lesson.test ? `Pronto per la prova dell’unità «${esc(cf.unit.title)}»?` : `Oggi: <b>${esc(cf.lesson.title)}</b> (${esc(cf.unit.title)}).`}</div></div>`;
+  const ul = cf.unit.lessons.length, li = cf.li + 1;
+  let h = `<section class="resume"><div class="resume-top">${ermes('happy', 76)}<div class="resume-txt"><small>${greet}${S.course.times[cf.lesson.id] ? 'Ripassiamo?' : 'Si riparte da qui'}</small><b>${esc(cf.lesson.title)}</b><span>Unità ${cf.ui + 1} · ${esc(cf.unit.title)} · ${cf.lesson.test ? 'prova finale' : `lezione ${li} di ${ul}`}</span></div></div>
+    <div class="resume-bar" aria-hidden="true">${cf.unit.lessons.map((l, k) => `<i class="${k < cf.li || S.course.stars[l.id] ? 'on' : ''}${k === cf.li ? ' cur' : ''}"></i>`).join('')}</div>
+    <div class="resume-actions"><button class="btn block" data-act="startLesson" data-i="${cur}">${I.play}${cf.lesson.test ? 'Inizia la prova' : 'Continua'}</button><button class="btn ghost" data-act="jump">${I.road}<span>Mostra</span></button></div></section>`;
   h += `<div class="only-narrow">${goalCard()}</div>`;
   if (canTranslate(sel())) h += `<section class="tr-quick"><p class="section-title">Allenati a tradurre</p>${translateCards(sel(), true)}</section>`;
   const offs = [0, 46, 70, 46, 0, -46, -70, -46];
@@ -6430,6 +6589,7 @@ function viewPath() {
     });
     h += roadSvg(pts, walked) + nodes + `</div></section>`;
   });
+  h += `<button class="jump" id="jump" data-act="jump" hidden>${I.road}<span>Lezione attuale</span></button>`;
   h += `<div class="trophy">${I.laurel.replace('<svg', '<svg style="width:40px;height:40px;color:var(--star)"')}Alla fine del percorso: la corona d’alloro dell’ἑρμηνεύς.</div>`;
   return h;
 }
@@ -6460,7 +6620,9 @@ function viewGym() {
   const unit = p.unit && T.has(p.unit) ? p.unit : units[units.length - 1].id;
   const nErr = S.mistakes.length;
   return `<h1 style="margin-top:18px">Palestra</h1>
-    <p class="section-title">Traduzione</p>${translateCards(T)}
+    <p class="section-title">Traduzione</p>
+    <div class="levels" role="group" aria-label="Difficoltà">${Object.entries(LEVELS).map(([k, l]) => `<button data-act="pracLevel" data-v="${k}" aria-pressed="${p.level === k}">${l.label}</button>`).join('')}</div>
+    <p class="note level-desc">${esc(LEVELS[p.level] ? LEVELS[p.level].desc : '')}</p>${translateCards(T)}
     <div class="grid2" style="margin-top:12px">
       <button class="mode" data-act="practice" data-m="nuove" ${S.settings.gen && canTranslate(T) ? '' : 'disabled'}>${I.spark}<b>Frasi nuove</b><span>create sul momento, ogni volta diverse</span></button>
       <button class="mode" data-act="methodSheet">${I.method}<b>Il metodo</b><span>sette passi per tradurre una frase</span></button></div>
@@ -6551,6 +6713,40 @@ function medal(id, on) {
   const b = BADGES.find((x) => x.id === id);
   return `<svg class="medal" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="${on ? 'var(--star-soft)' : 'var(--paper-2)'}" stroke="${on ? 'var(--star)' : 'var(--line)'}" stroke-width="3"/><path d="M12 30c3-1 5-4 6-8M36 30c-3-1-5-4-6-8M14 22c2 0 3-1 4-3M34 22c-2 0-3-1-4-3" stroke="${on ? 'var(--star-d)' : 'var(--muted)'}" stroke-width="2" fill="none" stroke-linecap="round"/><text x="24" y="29" text-anchor="middle" font-family="GFS Didot, serif" font-size="15" fill="${on ? 'var(--ink)' : 'var(--muted)'}">${esc(b ? b.name[0] : '?')}</text></svg>`;
 }
+/* ---------- Salvataggio dei progressi ---------- */
+const BADGE_IDS = () => BADGES.map((b) => b.id);
+const LESSON_IDS = () => FLAT.map((f) => f.lesson.id);
+function sinceText(t) {
+  if (!t) return 'mai';
+  const d = daysBetween(dayKey(new Date(t)), dayKey());
+  return d <= 0 ? 'oggi' : d === 1 ? 'ieri' : d + ' giorni fa';
+}
+function saveCard() {
+  const old = !S.backupAt || Date.now() - S.backupAt > 7 * 864e5;
+  return `<section class="card savecard"><div class="save-head"><span class="save-dot ${saveFailed ? 'bad' : ''}" aria-hidden="true">${saveFailed ? I.close : I.check2}</span><div><b>${saveFailed ? 'Il browser non permette di salvare' : 'Progressi salvati su questo dispositivo'}</b><span>${saveFailed ? 'Usa il codice di salvataggio prima di chiudere la pagina.' : 'Si salvano da soli dopo ogni risposta. Ultima copia di sicurezza: ' + sinceText(S.backupAt) + '.'}</span></div></div>
+    ${old && S.stats.lessons ? '<p class="note save-tip">Per non perderli se cambi telefono o cancelli i dati del browser, tieni da parte il tuo codice di salvataggio.</p>' : ''}
+    <div class="save-actions"><button class="btn block" data-act="saveCode">${I.keys}Codice di salvataggio</button><button class="btn ghost" data-act="export">${I.install}<span>File completo</span></button></div>
+    <button class="linkbtn" data-act="restoreSheet">Hai già un codice o un file? Ripristina i progressi</button></section>`;
+}
+function codeSheet(mode) {
+  const code = SV.encode(S, LESSON_IDS(), BADGE_IDS());
+  const body = mode === 'restore' ? '' : `<p>Questo codice contiene percorso, stelle, punti, serie, insegne e impostazioni. Copialo dove vuoi (note, messaggi, quaderno): su un altro dispositivo lo inserisci qui per ritrovare tutto.</p>
+    <div class="savecode" id="savecode" tabindex="0" aria-label="Codice di salvataggio">${esc(code)}</div>
+    <div class="save-actions"><button class="btn block" data-act="copyCode">${I.cards}Copia il codice</button></div>
+    <p class="note">Il ripasso degli errori e le schede del lessico restano solo nella copia completa su file.</p><hr class="sep">`;
+  openSheet(mode === 'restore' ? 'Ripristina i progressi' : 'Codice di salvataggio', body + `
+    <label for="codeIn"><b>Inserisci un codice</b></label><textarea id="codeIn" class="typed codein" rows="3" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Per esempio 1A2B-C3D4-…"></textarea>
+    <p class="note" id="codeMsg" role="status"></p>
+    <div class="save-actions"><button class="btn block" data-act="restoreCode">Ripristina dal codice</button><button class="btn ghost" data-act="import">${I.install}<span>Da file</span></button></div>`);
+}
+function applyRestore(part) {
+  const keepOnb = { onboarded: true, v: 2 };
+  const def = DEFAULT();
+  S = Object.assign(def, part, keepOnb, { stats: Object.assign(def.stats, part.stats || {}), settings: Object.assign(def.settings, part.settings || {}), course: Object.assign(def.course, part.course || {}), prac: Object.assign(def.prac, part.prac || {}) });
+  S.backupAt = Date.now();
+  onb = null; syncTopics(); save(); applyTheme(); closeSheet(); VIEW = 'path'; render(); window.scrollTo(0, 0);
+  toast('Progressi ripristinati.');
+}
 function viewMe() {
   const rk = rankOf(S.xp);
   const acc = S.stats.answered ? Math.round((S.stats.correct / S.stats.answered) * 100) : 0;
@@ -6558,6 +6754,7 @@ function viewMe() {
   const sw = (k, label, sub) => `<div class="setting"><div><b>${label}</b><span>${sub}</span></div><label class="switch"><input type="checkbox" data-set="${k}" ${set[k] === true || set[k] === 'lenient' || set[k] === 'keys' ? 'checked' : ''} aria-label="${esc(label)}"><i></i></label></div>`;
   const cu = FLAT[currentIdx()];
   return `<div style="display:flex;align-items:center;gap:14px;margin-top:18px">${ermes('happy', 72)}<div><h1 style="margin:0">${S.name ? esc(S.name) : 'Il tuo profilo'}</h1><div class="note">${gr(rk.r.name)} · ${esc(rk.r.tr)}</div></div></div>
+    ${saveCard()}
     <div class="stats3"><div class="stat" style="--c:var(--pri)"><small>Serie</small><b>${effectiveStreak()}</b></div><div class="stat" style="--c:var(--star)"><small>XP</small><b>${S.xp}</b></div><div class="stat" style="--c:var(--good)"><small>Precisione</small><b>${acc}%</b></div></div>
     <section class="card"><h2>Ultimi sette giorni</h2>${weekSvg()}<p class="note">Lezioni completate: ${S.stats.lessons} · unità superate: ${doneUnits()} su ${UNITS.length} · scudi: ${S.shields}</p></section>
     <p class="section-title">Insegne</p><section class="card"><div class="badges">${BADGES.map((b) => `<div class="badge ${S.badges[b.id] ? '' : 'off'}">${medal(b.id, !!S.badges[b.id])}<b lang="grc">${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join('')}</div></section>
@@ -6573,7 +6770,6 @@ function viewMe() {
     <div class="setting"><div><b>Tema</b><span>Colori dell’app</span></div><div class="seg">${[['auto', 'Auto'], ['light', 'Chiaro'], ['dark', 'Scuro']].map(([v, l]) => `<button data-act="theme" data-v="${v}" aria-pressed="${set.theme === v}">${l}</button>`).join('')}</div></div>
     <div class="setting"><div><b>Installa l’app</b><span>${isStandalone() ? 'Hermeneus è già installata.' : 'Sul telefono funziona anche senza rete.'}</span></div><button class="btn small" data-act="install" ${isStandalone() ? 'disabled' : ''}>${I.install}Installa</button></div>
     <div class="setting"><div><b>Nome</b><span>Facoltativo, resta sul dispositivo</span></div><button class="btn small ghost" data-act="rename">Cambia</button></div>
-    <div class="setting"><div><b>Copia di sicurezza</b><span>Salva o ripristina i progressi in un file</span></div><div class="seg"><button data-act="export">Salva</button><button data-act="import">Ripristina</button></div></div>
     <div class="setting"><div><b>Azzera i progressi</b><span>Cancella tutto da questo dispositivo</span></div><button class="btn small err" data-act="reset">Azzera</button></div></section>
     <section class="card"><h2>Informazioni</h2><p class="note">Hermeneus funziona tutto sul tuo dispositivo: nessun account, nessuna raccolta di dati, nessuna intelligenza artificiale. Pronuncia erasmiana della scuola italiana, letta dalla sintesi vocale del dispositivo. Caratteri: Gentium Plus, GFS Didot, Rubik (licenza SIL OFL 1.1). Dizionario online facoltativo: Wikizionario (CC BY-SA).</p>
     <p class="note">${E.LEX.length} lemmi · ${UNITS.length} unità · ${FLAT.length} lezioni · ${BANK.length} frasi verificate · ${B.SENTENTIAE.length} massime.</p></section>`;
@@ -6592,7 +6788,8 @@ function drawOnb() {
   if (onb.step === 0) {
     h += `<div style="text-align:center">${ermes('cheer', 150)}</div><h1 style="text-align:center">Χαῖρε! Io sono Ermes.</h1><p style="text-align:center">Il messaggero degli dèi, protettore dei viaggiatori e degli interpreti. Ti guido nel greco, una lezione alla volta: dieci minuti al giorno bastano.</p>
       <section class="card"><label for="nm"><b>Come ti chiami?</b> <span class="muted">(facoltativo)</span></label><input id="nm" class="typed" style="margin-top:8px" maxlength="24" autocomplete="off" value="${esc(onb.name)}" placeholder="Nome o soprannome"><p class="note" style="margin-top:10px">Tutto resta su questo dispositivo: nessun account, nessun dato inviato a nessuno.</p></section>
-      <button class="btn block" data-act="onbNext">Cominciamo</button>`;
+      <button class="btn block" data-act="onbNext">Cominciamo</button>
+      <button class="linkbtn" style="margin-top:14px" data-act="restoreSheet">Hai già usato Hermeneus? Ripristina i progressi</button>`;
   } else if (onb.step === 1) {
     h += say('Dove sei arrivato con il programma di classe? Apro le unità che hai già studiato; le altre si sbloccano facendo le lezioni.', 'think', 80) + placementList(onb.place, 'onbPlace') + `<button class="btn block" style="margin-top:8px" data-act="onbNext">Avanti</button>`;
   } else {
@@ -6636,7 +6833,8 @@ function hint() {
 }
 function rerenderKeep(focusSel) { const y = window.scrollY; render(); window.scrollTo(0, y); const b = focusSel && $(focusSel); if (b) b.focus({ preventScroll: true }); }
 const ACT = {
-  tab: (el) => { VIEW = el.dataset.v; openNode = null; render(); window.scrollTo(0, 0); const m = $('#main'); if (m) m.focus({ preventScroll: true }); if (VIEW === 'path') setTimeout(scrollToCurrent, 60); },
+  tab: (el) => { VIEW = el.dataset.v; openNode = null; render(); window.scrollTo(0, 0); const m = $('#main'); if (m) m.focus({ preventScroll: true }); },
+  jump: () => scrollToCurrent(),
   node: (el) => { const i = +el.dataset.i; openNode = openNode === i ? null : i; rerenderKeep(`.node[data-i="${i}"]`); },
   startLesson: (el) => { openNode = null; startLesson(+el.dataset.i); },
   startLessonTeach: (el) => { openNode = null; startLesson(+el.dataset.i, { teach: true }); },
@@ -6644,9 +6842,10 @@ const ACT = {
   goUnit: (el) => { VIEW = 'path'; render(); const u = $('#unit-' + el.dataset.u); if (u) u.scrollIntoView({ block: 'start' }); },
   practice: (el) => startPractice(el.dataset.m),
   pracUnit: (el) => { S.prac.unit = el.dataset.u; save(); rerenderKeep(`[data-act="pracUnit"][data-u="${el.dataset.u}"]`); },
+  pracLevel: (el) => { S.prac.level = el.dataset.v; save(); rerenderKeep(`[data-act="pracLevel"][data-v="${el.dataset.v}"]`); },
   pracType: (el) => { S.prac.type = el.dataset.v; save(); rerenderKeep(`[data-act="pracType"][data-v="${el.dataset.v}"]`); },
   topic: (el) => { VIEW = 'topic:' + el.dataset.t; openNode = null; render(); window.scrollTo(0, 0); },
-  quit: () => { const go = () => { SES = null; closeOverlay(); render(); }; if (SES && SES.i > 0 && !SES.done) askConfirm('Vuoi davvero uscire? I progressi di questa lezione andranno persi.', 'Esci', go, true, 'sad'); else go(); },
+  quit: () => { const go = () => { const y = SES ? SES.backY : 0; SES = null; closeOverlay(); render(); window.scrollTo(0, y); }; if (SES && SES.i > 0 && !SES.done) askConfirm('Vuoi davvero uscire? I progressi di questa lezione andranno persi.', 'Esci', go, true, 'sad'); else go(); },
   modalOk: () => { const i = $('#mdIn'); const v = i ? i.value : true; const cb = modalCb; modalCb = null; closeModal(); if (cb) cb(v); },
   check: () => doCheck(),
   next: () => { SES.i++; renderItem(); },
@@ -6678,13 +6877,36 @@ const ACT = {
   kbx: () => { const t = $('#typed'); if (!t || t.readOnly) return; const a = t.selectionStart ?? t.value.length; const chars = [...t.value.slice(0, a)]; chars.pop(); t.value = chars.join('') + t.value.slice(a); normalizeTyped(t, chars.join('').length); const b = $('#checkBtn'); if (b) b.disabled = !t.value.trim(); },
   kbcase: () => { kbUpper = !kbUpper; toast(kbUpper ? 'Prossima lettera maiuscola.' : 'Minuscole.'); },
   placement: () => placementSheet(),
-  setPlace: (el) => { const before = S.course.unlocked; placeAt(el.dataset.u || null); S.course.unlocked = Math.max(before, S.course.unlocked); syncTopics(); save(); closeSheet(); render(); toast('Percorso aggiornato.'); },
+  setPlace: (el) => {
+    const before = S.course.unlocked, u = el.dataset.u || null;
+    const apply = () => { placeAt(u); save(); closeSheet(); render(); window.scrollTo(0, 0); toast('Percorso aggiornato.'); };
+    const ui = u ? unitIdx(u) : -1;
+    const target = ui < 0 ? 0 : Math.min(FLAT.length - 1, lastLessonIdx(ui) + 1);
+    if (target < before) { closeSheet(); askConfirm(ui < 0 ? 'Ricominciare dall’alfabeto? Le unità successive si richiudono; stelle e punti restano salvati.' : `Tornare a «${UNITS[Math.min(UNITS.length - 1, ui + 1)].title}»? Le unità successive si richiudono; stelle e punti restano salvati.`, 'Conferma', apply); }
+    else apply();
+  },
   goal: (el) => { S.goal = +el.dataset.v; save(); render(); },
   theme: (el) => { S.settings.theme = el.dataset.v; save(); applyTheme(); render(); },
   install: () => installFlow(),
   rename: () => askText('Il tuo nome (facoltativo)', S.name, (n) => { S.name = String(n).trim().slice(0, 24); save(); render(); }),
-  export: () => { const blob = new Blob([JSON.stringify(S)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hermeneus-progressi-' + dayKey() + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); },
-  import: () => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'application/json,.json'; i.onchange = () => { const f = i.files[0]; if (!f) return; f.text().then((t) => { try { const d = JSON.parse(t); if (d && (d.v === 1 || d.v === 2)) { localStorage.setItem(KEY, JSON.stringify(d)); load(); applyTheme(); render(); toast('Progressi ripristinati.'); } else toast('File non valido.'); } catch (e) { toast('File non valido.'); } }); }; i.click(); },
+  saveCode: () => { S.backupAt = Date.now(); save(); codeSheet('save'); },
+  restoreSheet: () => codeSheet('restore'),
+  copyCode: () => {
+    const el = $('#savecode'); if (!el) return;
+    const done = () => toast('Codice copiato.');
+    const fallback = () => { const r = document.createRange(); r.selectNodeContents(el); const sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); toast('Codice selezionato: copialo con Copia.'); };
+    try { navigator.clipboard.writeText(el.textContent.trim()).then(done, fallback); } catch (e) { fallback(); }
+  },
+  restoreCode: () => {
+    const v = ($('#codeIn') || {}).value || '';
+    const msg = $('#codeMsg');
+    let part;
+    try { part = SV.decode(v, LESSON_IDS(), BADGE_IDS()); } catch (e) { if (msg) { msg.textContent = e.message; msg.classList.add('bad'); } return; }
+    const go = () => applyRestore(part);
+    if (S.onboarded && (S.xp || S.stats.lessons)) { closeSheet(); askConfirm('Sostituire i progressi di questo dispositivo con quelli del codice?', 'Ripristina', go); } else go();
+  },
+  export: () => { const blob = new Blob([JSON.stringify(S)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hermeneus-progressi-' + dayKey() + '.json'; S.backupAt = Date.now(); save(); document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); },
+  import: () => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'application/json,.json'; i.onchange = () => { const f = i.files[0]; if (!f) return; f.text().then((t) => { try { const d = JSON.parse(t); if (d && (d.v === 1 || d.v === 2)) { localStorage.setItem(KEY, JSON.stringify(d)); load(); S.backupAt = Date.now(); onb = null; save(); closeSheet(); applyTheme(); VIEW = 'path'; render(); toast('Progressi ripristinati.'); } else toast('File non valido.'); } catch (e) { toast('File non valido.'); } }); }; i.click(); },
   reset: () => askConfirm('Cancellare tutti i progressi da questo dispositivo?', 'Cancella', () => { try { localStorage.removeItem(KEY); } catch (e) { /* ignora */ } S = DEFAULT(); onb = null; applyTheme(); render(); }, true, 'sad'),
   search: () => searchForm(),
   flashShow: () => { flashCur.shown = true; drawFlash(); },
@@ -6697,7 +6919,7 @@ const ACT = {
     const acc = $('#onbAcc');
     S.name = onb.name; S.goal = onb.goal; S.settings.accents = acc && acc.checked ? 'lenient' : 'strict';
     placeAt(onb.place || null);
-    S.onboarded = true; save(); onb = null; VIEW = 'path'; render(); setTimeout(scrollToCurrent, 80);
+    S.onboarded = true; save(); onb = null; VIEW = 'path'; render(); window.scrollTo(0, 0);
   },
 };
 
@@ -6744,6 +6966,15 @@ document.addEventListener('input', (ev) => {
 });
 window.addEventListener('resize', closePop);
 window.addEventListener('scroll', closePop, true);
+function updateJump() {
+  const j = $('#jump'), n = $('.node.current');
+  if (!j || !n) return;
+  const r = n.getBoundingClientRect();
+  const off = r.bottom < 70 || r.top > innerHeight - 90;
+  j.hidden = !off;
+  j.classList.toggle('up', r.bottom < 70);
+}
+window.addEventListener('scroll', updateJump, { passive: true });
 
 /* ---------- Avvio ---------- */
 function warmLoop() {
@@ -6753,11 +6984,11 @@ function warmLoop() {
 }
 function boot() {
   load();
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) { /* ignora */ }
   applyTheme();
   const mq = matchMedia('(prefers-color-scheme: dark)');
   if (mq.addEventListener) mq.addEventListener('change', applyTheme);
   render();
-  if (S.onboarded) setTimeout(scrollToCurrent, 120);
   warmLoop();
   try { if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; } } catch (e) { /* ignora */ }
   if (SITE && 'serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -11,6 +11,7 @@ const ORDER = TOPICS.map((t) => t.id);
 const UNITS = C.UNITS;
 const FLAT = LS.FLAT;
 const SITE = !!window.HERM_SITE;
+const SV = window.HermSave;
 
 /* ---------- Utilità ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -87,48 +88,65 @@ const I = {
 const MARK = '<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="1" y="1" width="62" height="62" rx="18" fill="#7C5CFF"/><text x="33" y="45" text-anchor="middle" font-family="GFS Didot, Gentium Plus, serif" font-size="36" fill="#FFFFFF">Ἑ</text></svg>';
 
 /* ---------- Ermes, la guida ---------- */
-// personaggio da cartone: testa grande, petaso viola con le ali, mantello color menta.
-// Umori: idle, happy, think, sad, cheer
+// Hermes, dio dei messaggeri e degli interpreti, in versione da cartone: elmo alato, riccioli, tunica e mantello,
+// caduceo e sandali alati. Umori: idle, happy, think, sad, cheer
 let ermesN = 0;
 function ermes(mood = 'idle', size = 96) {
-  const D = '#2B2440', SKIN = '#FFD9BE', HAT = '#7C5CFF', HAT2 = '#9B82FF', CAPE = '#2DB57E', CAPE2 = '#1FA06C', HAIR = '#6B4A3A', W = '#FFFFFF';
-  const ln = (d, w = 2.2, col = D) => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
-  const eye = (x, y, rx = 4.2, ry = 5.2) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${D}"/><circle cx="${x + 1.4}" cy="${y - 1.8}" r="1.6" fill="${W}"/><circle cx="${x - 1.2}" cy="${y + 1.6}" r=".7" fill="${W}"/>`;
-  const eyes = {
-    idle: eye(41, 60) + eye(59, 60),
-    happy: ln('M36.5 61q4.5-5.5 9 0M54.5 61q4.5-5.5 9 0', 2.8),
-    cheer: ln('M36 61.5q5-6.5 10 0M54 61.5q5-6.5 10 0', 3) + ln('M35 52.5q5-3 10 0M55 52.5q5-3 10 0', 2),
-    think: eye(42.5, 58.5, 3.8, 4.8) + eye(60.5, 58.5, 3.8, 4.8) + ln('M54.5 50.5q5-3.4 10 .2', 2.2),
-    sad: eye(41, 61.5, 3.8, 4.6) + eye(59, 61.5, 3.8, 4.6) + ln('M35.5 55.6l9-3M64.5 55.6l-9-3', 2.2),
+  const O = '#2B2440', SK = '#FFD2AE', SK2 = '#F2B48C', HAIR = '#5B3A2E', GOLD = '#FFC233', GOLD2 = '#E09A12', W = '#FFFFFF', W2 = '#E4DDFF', CAPE = '#7C5CFF', CAPE2 = '#5B3FD6', SNAKE = '#2DB57E';
+  const st = (w = 2.2) => `stroke="${O}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
+  const ln = (d, w = 2.4, col = O) => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // braccio: contorno scuro e pelle sopra, così resta leggibile anche piccolo
+  const arm = (d) => `<path d="${d}" fill="none" stroke="${O}" stroke-width="9.4" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${SK}" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const eye = (x, y, rx = 4.4, ry = 5.6) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${O}"/><circle cx="${x + 1.5}" cy="${y - 2}" r="1.7" fill="${W}"/><circle cx="${x - 1.3}" cy="${y + 1.8}" r=".8" fill="${W}"/>`;
+  const face = {
+    idle: eye(49, 58) + eye(71, 58) + ln('M44.5 50.4q4.5-2.4 9 0M66.5 50.4q4.5-2.4 9 0', 2) + ln('M54.5 68.6q5.5 4 11 0'),
+    happy: ln('M44.5 59q4.5-5.4 9 0M66.5 59q4.5-5.4 9 0', 2.8) + ln('M44.5 49.6q4.5-2.6 9 0M66.5 49.6q4.5-2.6 9 0', 2) + `<path d="M52.8 66.8q7.2 8.6 14.4 0z" fill="#7A2E45" ${st(1.6)}/><path d="M56 70.6q4 2.2 8 0" fill="none" stroke="#FF8FAB" stroke-width="2.2" stroke-linecap="round"/>`,
+    cheer: ln('M44 59.4q5-6.2 10 0M66 59.4q5-6.2 10 0', 3) + ln('M44 48.2q5-3.4 10 0M66 48.2q5-3.4 10 0', 2) + `<path d="M51.4 65.8q8.6 11.4 17.2 0z" fill="#7A2E45" ${st(1.6)}/><path d="M55.4 71.4q4.6 2.8 9.2 0" fill="none" stroke="#FF8FAB" stroke-width="2.6" stroke-linecap="round"/>`,
+    think: eye(50.5, 57, 4, 5.2) + eye(72.5, 57, 4, 5.2) + ln('M45 51q4.4-1.4 8.8.4M66.6 48.2q4.8-3.2 9.4.4', 2) + ln('M56 69.4l8.6-1.6'),
+    sad: eye(49, 59.4, 4, 5) + eye(71, 59.4, 4, 5) + ln('M44.6 53.4l8.6-3M75.4 53.4l-8.6-3', 2) + ln('M54.6 71q5.4-3.8 10.8 0'),
   }[mood] || '';
-  const mouth = {
-    idle: ln('M44.5 71q5.5 4 11 0', 2.4),
-    happy: `<path d="M42.5 69.5q7.5 9 15 0z" fill="#7A2E45"/><path d="M45.5 73.6q4.5 2.6 9 0" fill="none" stroke="#FF8FAB" stroke-width="2.4" stroke-linecap="round"/>`,
-    cheer: `<path d="M41 68.5q9 12 18 0z" fill="#7A2E45"/><path d="M45 74.4q5 3.2 10 0" fill="none" stroke="#FF8FAB" stroke-width="2.8" stroke-linecap="round"/>`,
-    think: ln('M46 72.5l8.5-1.4', 2.4),
-    sad: ln('M44.5 74q5.5-4 11 0', 2.4),
-  }[mood] || '';
-  const id = 'ermesHat' + (++ermesN);
+  // posa del braccio libero (a sinistra di chi guarda); l'altro tiene il caduceo
+  const freeArm = { happy: 'M44 82C37 80 32 76 29.4 71', cheer: 'M44 81C36 77 30 71 26.6 63.4', think: 'M45 82C47 79 50 76 53 73.6', sad: 'M44 82C41 88 39 93 39 98', idle: 'M44 82C40 87 38 92 38 97' }[mood] || 'M44 82C40 87 38 92 38 97';
+  const hand = { happy: [28.6, 69.4], cheer: [26, 61.6], think: [54, 72.6], sad: [39, 99.6], idle: [38, 98.6] }[mood] || [38, 98.6];
+  const id = 'ermes' + (++ermesN);
   const cls = mood === 'cheer' ? 'cheer' : 'bob';
-  const wing = 'M30 35c-7-6.5-16-8-24-5 6.5 1 11 2.8 14 5-6.5 0-10.5 1.6-13.5 4.4 7.5-1.2 14.5-1.2 23.5.6z';
-  const feathers = 'M22.5 33.6l-7-1.4M23.6 37.3l-9-.4';
-  return `<svg class="ermes ${cls}" width="${size}" height="${size}" viewBox="0 0 100 100" role="img" aria-label="Ermes, la tua guida">
-    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${HAT2}"/><stop offset="1" stop-color="${HAT}"/></linearGradient></defs>
+  const wing = 'M34 39C26 31 16 25 5 23c6 4.6 9.4 7.6 11.4 10.6C10.4 32.6 6.6 33.8 3.6 36.2c7.2 1.4 12.6 2.2 16.6 3-5 1.2-8.6 3.4-10.6 6.2 8-.8 16.4-2.8 24.4-2.8z';
+  const feathers = 'M27 32.6l-9.6-3.6M27.4 37.4l-11-1.4M27.6 41.4l-9.4 1.6';
+  const sandal = (x) => `<path d="M${x - 6} 114.6h12c0-2.6-2.4-4-6-4s-6 1.4-6 4z" fill="${HAIR}" ${st(1.6)}/><path d="M${x - 5} 109c-3.4-1.6-6.4-1.6-8.4 0 2 .8 3.4 1.6 4 2.6-1.8 0-3 .6-3.8 1.6 2.8.4 5.4.2 8.2-.6z" fill="${W}" ${st(1.2)}/>`;
+  return `<svg class="ermes ${cls}" width="${size}" height="${size}" viewBox="0 0 120 120" role="img" aria-label="Ermes, la tua guida">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD866"/><stop offset="1" stop-color="${GOLD}"/></linearGradient></defs>
+    <ellipse cx="60" cy="116.4" rx="24" ry="3.2" fill="${O}" opacity=".12"/>
     <g class="figure">
-      <path d="M22 100c1.5-13 12.5-21 28-21s26.5 8 28 21z" fill="${CAPE}"/>
-      <path d="M50 79c-6 0-11 1.4-15 3.8L50 93l15-10.2C61 80.4 56 79 50 79z" fill="${CAPE2}"/>
-      <circle cx="62" cy="84" r="3.2" fill="#FFC233" stroke="#E0A000" stroke-width="1"/>
-      <ellipse cx="25.5" cy="62" rx="4.4" ry="5.6" fill="${SKIN}"/><ellipse cx="74.5" cy="62" rx="4.4" ry="5.6" fill="${SKIN}"/>
-      <circle cx="50" cy="60" r="25" fill="${SKIN}"/>
-      <path d="M26 54c2-10 9-15 13-15 3 0 1 5 4 5s3-6 7-6 4 6 7 6 1-5 4-5c4 0 11 5 13 15-3-4-7-5-9-5-1 3-4 4-6 3-2 2-6 3-9 3s-7-1-9-3c-2 1-5 0-6-3-2 0-6 1-9 5z" fill="${HAIR}"/>
-      <circle cx="35" cy="68.5" r="4.4" fill="#FF8FAB" opacity=".55"/><circle cx="65" cy="68.5" r="4.4" fill="#FF8FAB" opacity=".55"/>
-      ${eyes}${mouth}
-      <g transform="rotate(-14 30 37)"><g class="wing l"><path d="${wing}" fill="${W}" stroke="#9B82FF" stroke-width="1.8"/>${ln(feathers, 1.5, '#9B82FF')}</g></g>
-      <g transform="translate(100 0) scale(-1 1)"><g transform="rotate(-14 30 37)"><g class="wing l"><path d="${wing}" fill="${W}" stroke="#9B82FF" stroke-width="1.8"/>${ln(feathers, 1.5, '#9B82FF')}</g></g></g>
-      <path d="M31 40c0-13 8.5-21 19-21s19 8 19 21z" fill="url(#${id})"/>
-      <path d="M31.6 35.6c12 3.2 24.8 3.2 36.8 0l.6 4.4c-12.6 3.4-25.4 3.4-38 0z" fill="#FFC233"/>
-      <ellipse cx="50" cy="41.5" rx="33" ry="7" fill="${HAT}"/>
-      <ellipse cx="44" cy="27" rx="5" ry="2.6" fill="#FFFFFF" opacity=".35" transform="rotate(-20 44 27)"/>
+      <path d="M43 80C33 88 29 99 31 110l14-3z" fill="${CAPE}" ${st()}/>
+      <path d="M50 104v8M70 104v8" stroke="${O}" stroke-width="8.6" stroke-linecap="round"/><path d="M50 104v8M70 104v8" stroke="${SK}" stroke-width="4.6" stroke-linecap="round"/>
+      ${sandal(50)}${sandal(70).replace(/M65 109c-3.4-1.6-6.4-1.6-8.4 0 2 .8 3.4 1.6 4 2.6-1.8 0-3 .6-3.8 1.6 2.8.4 5.4.2 8.2-.6z/, 'M75 109c3.4-1.6 6.4-1.6 8.4 0-2 .8-3.4 1.6-4 2.6 1.8 0 3 .6 3.8 1.6-2.8.4-5.4.2-8.2-.6z')}
+      <path d="M45 77C42 87 40 97 39 106h42c-1-9-3-19-6-29z" fill="${W}" ${st()}/>
+      <path d="M47 90c4 6 3 12 2 16M73 90c-4 6-3 12-2 16M60 92v14" fill="none" stroke="${W2}" stroke-width="2" stroke-linecap="round"/>
+      <path d="M41.4 89.6h37.2l.8 5.2H40.6z" fill="${GOLD}" ${st(1.8)}/>
+      <path d="M72 76.4l7.4 3.4-25 23.4-6.8-3.6z" fill="${CAPE}" ${st(1.8)}/>
+      <circle cx="74.6" cy="79" r="3" fill="${GOLD}" ${st(1.4)}/>
+      ${arm(freeArm)}<circle cx="${hand[0]}" cy="${hand[1]}" r="4.6" fill="${SK}" ${st(1.8)}/>
+      <g class="caduceus">
+        <path d="M90 62v52" stroke="${O}" stroke-width="5.6" stroke-linecap="round"/><path d="M90 62v52" stroke="${GOLD}" stroke-width="2.8" stroke-linecap="round"/>
+        <path d="M84 70.6c11 3.4 11 7.8 0 11.2s-11 7.8 0 11.2M96 70.6c-11 3.4-11 7.8 0 11.2s11 7.8 0 11.2" fill="none" stroke="${O}" stroke-width="4.6" stroke-linecap="round"/>
+        <path d="M84 70.6c11 3.4 11 7.8 0 11.2s-11 7.8 0 11.2M96 70.6c-11 3.4-11 7.8 0 11.2s11 7.8 0 11.2" fill="none" stroke="${SNAKE}" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M89 63c-4-4-9-5-13-3.4 3 1.4 5 2.6 6 4-3 0-4.6 1-5.6 2.4 4.4.4 8.6-.4 12.6-2.2zM91 63c4-4 9-5 13-3.4-3 1.4-5 2.6-6 4 3 0 4.6 1 5.6 2.4-4.4.4-8.6-.4-12.6-2.2z" fill="${W}" ${st(1.4)}/>
+        <circle cx="90" cy="59.6" r="3.6" fill="${GOLD}" ${st(1.6)}/>
+      </g>
+      ${arm('M75 82C80 86 83 88 86.6 89')}<circle cx="88.4" cy="89.2" r="4.6" fill="${SK}" ${st(1.8)}/>
+      <path d="M53 73h14v6H53z" fill="${SK2}"/>
+      <ellipse cx="33.4" cy="58" rx="4.2" ry="5.4" fill="${SK}" ${st(1.8)}/><ellipse cx="86.6" cy="58" rx="4.2" ry="5.4" fill="${SK}" ${st(1.8)}/>
+      <circle cx="60" cy="54" r="27" fill="${SK}" ${st()}/>
+      <path d="M34.4 51c-1.6 4-1 8.4 1.4 11.2 1-3.4 1.2-6.8.4-10.2M85.6 51c1.6 4 1 8.4-1.4 11.2-1-3.4-1.2-6.8-.4-10.2" fill="${HAIR}" ${st(1.4)}/>
+      <path d="M34 45c8-3.4 44-3.4 52 0v3c-2.6 4.4-6.4 4.4-8.6 0-2.6 4.4-6.4 4.4-8.6 0-2.6 4.4-6.4 4.4-8.6 0-2.6 4.4-6.4 4.4-8.6 0-2.6 4.4-6.4 4.4-8.6 0-2.6 4.4-6.6 4.4-9 0z" fill="${HAIR}" ${st(1.6)}/>
+      <circle cx="42.4" cy="65.6" r="4.4" fill="#FF8FAB" opacity=".5"/><circle cx="77.6" cy="65.6" r="4.4" fill="#FF8FAB" opacity=".5"/>
+      ${ln('M60.6 61.4q-1.8 3.4.4 4.6', 1.8)}
+      ${face}
+      <g class="wing l">${`<path d="${wing}" fill="${W}" ${st(1.8)}/>`}${ln(feathers, 1.5, '#9B82FF')}</g>
+      <g transform="translate(120 0) scale(-1 1)"><g class="wing l"><path d="${wing}" fill="${W}" ${st(1.8)}/>${ln(feathers, 1.5, '#9B82FF')}</g></g>
+      <path d="M33 45.4C33.6 29 45 19.6 60 19.6S86.4 29 87 45.4C79 41.4 70 39.6 60 39.6s-19 1.8-27 5.8z" fill="url(#${id})" ${st()}/>
+      <path d="M33 45.4c8-4 17-5.8 27-5.8s19 1.8 27 5.8l.4 4.2c-8.2-3.8-17.4-5.4-27.4-5.4s-19.2 1.6-27.4 5.4z" fill="${GOLD2}" ${st(1.8)}/>
+      <path d="M48 27.6c3.4-2.6 7.4-3.6 11-3.6" fill="none" stroke="#FFF3C4" stroke-width="3" stroke-linecap="round"/>
     </g>
   </svg>`;
 }
@@ -138,9 +156,9 @@ const say = (text, mood = 'happy', size = 76) => `<div class="say">${ermes(mood,
 const KEY = 'hermeneus.v1';
 const DEFAULT = () => ({
   v: 2, onboarded: false, name: '', topics: [], goal: 50, xp: 0, days: {}, streak: 0, lastDay: null, shields: 0,
-  mastery: {}, mistakes: [], badges: {}, vocab: {}, recent: [], genSaved: [],
+  mastery: {}, mistakes: [], badges: {}, vocab: {}, recent: [], genSaved: [], backupAt: 0, savedAt: 0,
   course: { unlocked: 0, stars: {}, times: {} },
-  prac: { unit: null, type: 'misto', wide: false },
+  prac: { unit: null, type: 'misto', wide: false, level: 'media' },
   stats: { answered: 0, correct: 0, sessions: 0, perfect: 0, forms: 0, typedOK: 0, translated: 0, genSeen: 0, types: {}, clearedReview: 0, accentOK: 0, lessons: 0 },
   settings: { sound: true, voice: true, input: 'tiles', accents: 'lenient', theme: 'auto', gen: true, online: true },
 });
@@ -157,7 +175,8 @@ function load() {
     syncTopics();
   } catch (e) { /* archiviazione non disponibile */ }
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignora */ } }
+let saveFailed = false;
+function save() { try { S.savedAt = Date.now(); localStorage.setItem(KEY, JSON.stringify(S)); saveFailed = false; } catch (e) { saveFailed = true; } }
 function applyTheme() {
   const r = document.documentElement;
   if (S.settings.theme === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', S.settings.theme);
@@ -377,6 +396,14 @@ function startLesson(idx, o = {}) {
   if (teach && f.li === 0 && f.unit.say) items = [{ type: 'teach', card: { say: f.unit.say, intro: true }, topic: f.unit.id }].concat(items);
   begin({ kind: 'lesson', idx, items, title: f.lesson.title, test: !!f.lesson.test });
 }
+// difficoltà delle frasi in palestra: lunghezza, tessere intruse, risposta scritta
+const LEVELS = {
+  facile: { label: 'Facile', desc: 'Frasi brevi, fino a 4 parole, con una sola tessera in più.', maxWords: 4, simple: true, extra: 1 },
+  media: { label: 'Media', desc: 'Frasi da 3 a 6 parole, con tre tessere in più per confonderti.', minWords: 3, maxWords: 6, extra: 3 },
+  difficile: { label: 'Difficile', desc: 'Frasi lunghe, da 5 parole in su, con cinque tessere in più.', minWords: 5, extra: 5 },
+  esperto: { label: 'Esperto', desc: 'Frasi lunghe da scrivere da te, con la tastiera greca: niente tessere.', minWords: 6, typed: true },
+};
+const levelOf = () => (SES && SES.kind === 'practice' && LEVELS[SES.level]) || null;
 const MIXES = {
   misto: ['frase', 'analizza', 'frase', 'abbina', 'frase', 'scrivi', 'frase', 'completa', 'frase', 'accorda'],
   frasi: Array(10).fill('frase'),
@@ -396,13 +423,13 @@ function startPractice(mode) {
     // le traduzioni lavorano su tutto ciò che è aperto, con l'accento sull'ultima unità; il resto sull'argomento scelto
     const latest = S.topics[S.topics.length - 1];
     const unit = mode === 'alfabeto' ? 'alf' : ['gr_it', 'it_gr', 'nuove'].includes(mode) ? latest : p.unit && T.has(p.unit) ? p.unit : latest;
-    items = LS.buildPractice({ T, focus: unit, mix: MIXES[mode] || MIXES[p.type] || MIXES.misto, wide: p.wide, genShare: mode === 'nuove' ? 1 : 0.5, gen: S.settings.gen, avoid: S.recent });
+    items = LS.buildPractice({ T, focus: unit, mix: MIXES[mode] || MIXES[p.type] || MIXES.misto, wide: p.wide, genShare: mode === 'nuove' ? 1 : 0.5, gen: S.settings.gen, avoid: S.recent, level: mode === 'alfabeto' ? null : LEVELS[p.level] });
   }
   if (!items.length) { toast(mode === 'review' ? 'Nessun errore da ripassare: ottimo!' : 'Non ci sono ancora esercizi per questa scelta.'); return; }
-  begin({ kind: 'practice', mode, items, title: 'Palestra' });
+  begin({ kind: 'practice', mode, items, title: 'Palestra', level: mode === 'review' ? null : S.prac.level });
 }
 function begin(o) {
-  SES = Object.assign({ i: 0, combo: 0, best: 0, xp: 0, ok: 0, ko: 0, start: Date.now(), cur: null, done: false, requeued: 0, shownTheory: {} }, o);
+  SES = Object.assign({ backY: window.scrollY, backView: VIEW, i: 0, combo: 0, best: 0, xp: 0, ok: 0, ko: 0, start: Date.now(), cur: null, done: false, requeued: 0, shownTheory: {} }, o);
   openOverlay();
   renderItem();
 }
@@ -427,7 +454,7 @@ function renderItem() {
   const it = SES.items[SES.i];
   if (!it) return finishSession();
   setProgress(); setCombo();
-  SES.cur = { it, answered: false, chosen: [], picked: null, inputMode: S.settings.input === 'keys' ? 'keys' : 'tiles' };
+  SES.cur = { it, answered: false, chosen: [], picked: null, inputMode: S.settings.input === 'keys' || (levelOf() && levelOf().typed) ? 'keys' : 'tiles' };
   const [ico, label] = KIND[it.type] || [I.book, ''];
   let html = it.type === 'teach' ? '' : `<div class="kind">${ico}<span>${it.quiz ? 'Verifica veloce' : label}</span>${it.review ? ' <span class="tag">ripasso</span>' : ''}${it.requeued ? ' <span class="tag">riproviamo</span>' : ''}${it.s && it.s.src === 'gen' ? ' <span class="tag">frase nuova</span>' : ''}</div>`;
   html += ({
@@ -524,8 +551,10 @@ function greekTiles(s) {
   const have = new Set(tiles.map((t) => G.strict(t.label)));
   const T = sel();
   const dis = [];
-  for (const t of shuffle(toks)) {
-    if (dis.length >= 3) break;
+  const n = levelOf() ? levelOf().extra ?? 3 : 3;
+  // più giri sulle stesse parole quando il livello chiede molte tessere intruse
+  for (const t of shuffle(toks).concat(shuffle(toks))) {
+    if (dis.length >= n) break;
     if (!t.a || !['n', 'v', 'a', 'art', 'p'].includes(t.a.e.k) || t.a.key === 'lemma') continue;
     const head = t.a.key.split('.').slice(0, 2).join('.');
     const alts = shuffle(formsUsable(t.a.e, T).filter((f) => !have.has(G.strict(f.f)) && f.key.split('.').slice(0, 2).join('.') === head));
@@ -540,8 +569,9 @@ function italianTiles(s) {
   const have = new Set(words.map((w) => w.toLowerCase()));
   const extra = [];
   const pool = shuffle(BANK.filter((b) => b !== s)).slice(0, 60).flatMap((b) => b.it[0].replace(/[.,;:!?«»"]/g, ' ').split(/\s+/)).filter((w) => w.length > 3 && !have.has(w.toLowerCase()));
-  for (const w of shuffle(IT_FUNC)) { if (extra.length >= 1) break; if (!have.has(w)) { extra.push(w); have.add(w); } }
-  for (const w of pool) { if (extra.length >= 3) break; if (!have.has(w.toLowerCase())) { extra.push(w.toLowerCase()); have.add(w.toLowerCase()); } }
+  const n = levelOf() ? levelOf().extra ?? 3 : 3;
+  for (const w of shuffle(IT_FUNC)) { if (extra.length >= Math.min(1, n)) break; if (!have.has(w)) { extra.push(w); have.add(w); } }
+  for (const w of pool) { if (extra.length >= n) break; if (!have.has(w.toLowerCase())) { extra.push(w.toLowerCase()); have.add(w.toLowerCase()); } }
   return shuffle(tiles.concat(extra.map((w) => ({ label: w, distractor: true }))));
 }
 function refreshAnswer() {
@@ -910,13 +940,14 @@ function finishSession() {
     <div class="stats3"><div class="stat" style="--c:var(--star)"><small>XP</small><b>+${SES.xp + bonus}</b></div><div class="stat" style="--c:var(--good)"><small>Precisione</small><b>${Math.round(acc * 100)}%</b></div><div class="stat" style="--c:var(--info)"><small>Tempo</small><b>${mins}′</b></div></div>
     <p class="note">${goalDone ? `Obiettivo di oggi raggiunto: ${todayXP()} XP.` : `Oggi ${todayXP()} di ${S.goal} XP.`}</p>
     ${rankUp ? `<div class="card">Nuovo grado: ${gr(rankOf(S.xp).r.name)} — ${esc(rankOf(S.xp).r.tr)}</div>` : ''}
-    ${won.map((b) => `<div class="card">${medal(b.id, true)}<b lang="grc">${esc(b.name)}</b><div class="note">${esc(b.desc)}</div></div>`).join('')}</div>`;
+    ${won.map((b) => `<div class="card">${medal(b.id, true)}<b lang="grc">${esc(b.name)}</b><div class="note">${esc(b.desc)}</div></div>`).join('')}
+    ${SES.kind === 'lesson' && (S.stats.lessons === 1 || (S.stats.lessons >= 3 && Date.now() - (S.backupAt || 0) > 7 * 864e5)) ? `<div class="card save-nudge"><b>Metti al sicuro i tuoi progressi</b><p class="note">Si salvano da soli su questo dispositivo. Con il codice di salvataggio li ritrovi anche su un altro telefono.</p><button class="btn small ghost" data-act="saveCode">${I.keys}Mostra il codice</button></div>` : ''}</div>`;
   $('#ovFootWrap').className = 'ov-foot';
   const again = !passed && SES.kind === 'lesson' ? `<button class="btn ghost" data-act="retry">Riprova</button>` : S.mistakes.length && SES.kind === 'practice' && SES.mode !== 'review' ? '<button class="btn ghost" data-act="startReview">Ripassa gli errori</button>' : '';
   $('#ovFoot').innerHTML = `<div class="foot-row">${again}<button class="btn ${passed ? 'ok' : ''}" data-act="endSession">Continua</button></div>`;
   setTimeout(() => { const b = $('#ovFoot .btn:last-child'); if (b) b.focus(); }, 60);
 }
-function endSession() { const wasLesson = SES && SES.kind === 'lesson'; SES = null; closeOverlay(); if (wasLesson) VIEW = 'path'; render(); flushToasts(); if (wasLesson) setTimeout(scrollToCurrent, 80); }
+function endSession() { const y = SES ? SES.backY : 0; SES = null; closeOverlay(); render(); window.scrollTo(0, y); flushToasts(); }
 
 /* ---------- Ripetizione dilazionata ---------- */
 const BOX_DAYS = [0, 1, 2, 4, 8, 16];
@@ -1078,6 +1109,7 @@ function render() {
     <aside class="side" aria-label="I tuoi progressi">${sidePanel()}</aside></div>
     <nav class="tabs" aria-label="Sezioni">${NAV.map(([v, ic, it]) => `<button data-act="tab" data-v="${v}" ${cur === v ? 'aria-current="page"' : ''}>${ic}<span>${it}</span></button>`).join('')}</nav>`;
   if (VIEW === 'words') bindWords();
+  requestAnimationFrame(updateJump);
 }
 function ringSvg(p, label) {
   const r = 27, c = 2 * Math.PI * r, v = Math.max(0, Math.min(1, p));
@@ -1109,7 +1141,10 @@ function viewPath() {
   const cur = currentIdx();
   const cf = FLAT[cur];
   const greet = S.name ? `Χαῖρε, ${esc(S.name)}! ` : 'Χαῖρε! ';
-  let h = `<div class="hello">${ermes('happy', 72)}<div class="bubble">${greet}${cf.lesson.test ? `Pronto per la prova dell’unità «${esc(cf.unit.title)}»?` : `Oggi: <b>${esc(cf.lesson.title)}</b> (${esc(cf.unit.title)}).`}</div></div>`;
+  const ul = cf.unit.lessons.length, li = cf.li + 1;
+  let h = `<section class="resume"><div class="resume-top">${ermes('happy', 76)}<div class="resume-txt"><small>${greet}${S.course.times[cf.lesson.id] ? 'Ripassiamo?' : 'Si riparte da qui'}</small><b>${esc(cf.lesson.title)}</b><span>Unità ${cf.ui + 1} · ${esc(cf.unit.title)} · ${cf.lesson.test ? 'prova finale' : `lezione ${li} di ${ul}`}</span></div></div>
+    <div class="resume-bar" aria-hidden="true">${cf.unit.lessons.map((l, k) => `<i class="${k < cf.li || S.course.stars[l.id] ? 'on' : ''}${k === cf.li ? ' cur' : ''}"></i>`).join('')}</div>
+    <div class="resume-actions"><button class="btn block" data-act="startLesson" data-i="${cur}">${I.play}${cf.lesson.test ? 'Inizia la prova' : 'Continua'}</button><button class="btn ghost" data-act="jump">${I.road}<span>Mostra</span></button></div></section>`;
   h += `<div class="only-narrow">${goalCard()}</div>`;
   if (canTranslate(sel())) h += `<section class="tr-quick"><p class="section-title">Allenati a tradurre</p>${translateCards(sel(), true)}</section>`;
   const offs = [0, 46, 70, 46, 0, -46, -70, -46];
@@ -1138,6 +1173,7 @@ function viewPath() {
     });
     h += roadSvg(pts, walked) + nodes + `</div></section>`;
   });
+  h += `<button class="jump" id="jump" data-act="jump" hidden>${I.road}<span>Lezione attuale</span></button>`;
   h += `<div class="trophy">${I.laurel.replace('<svg', '<svg style="width:40px;height:40px;color:var(--star)"')}Alla fine del percorso: la corona d’alloro dell’ἑρμηνεύς.</div>`;
   return h;
 }
@@ -1168,7 +1204,9 @@ function viewGym() {
   const unit = p.unit && T.has(p.unit) ? p.unit : units[units.length - 1].id;
   const nErr = S.mistakes.length;
   return `<h1 style="margin-top:18px">Palestra</h1>
-    <p class="section-title">Traduzione</p>${translateCards(T)}
+    <p class="section-title">Traduzione</p>
+    <div class="levels" role="group" aria-label="Difficoltà">${Object.entries(LEVELS).map(([k, l]) => `<button data-act="pracLevel" data-v="${k}" aria-pressed="${p.level === k}">${l.label}</button>`).join('')}</div>
+    <p class="note level-desc">${esc(LEVELS[p.level] ? LEVELS[p.level].desc : '')}</p>${translateCards(T)}
     <div class="grid2" style="margin-top:12px">
       <button class="mode" data-act="practice" data-m="nuove" ${S.settings.gen && canTranslate(T) ? '' : 'disabled'}>${I.spark}<b>Frasi nuove</b><span>create sul momento, ogni volta diverse</span></button>
       <button class="mode" data-act="methodSheet">${I.method}<b>Il metodo</b><span>sette passi per tradurre una frase</span></button></div>
@@ -1259,6 +1297,40 @@ function medal(id, on) {
   const b = BADGES.find((x) => x.id === id);
   return `<svg class="medal" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="${on ? 'var(--star-soft)' : 'var(--paper-2)'}" stroke="${on ? 'var(--star)' : 'var(--line)'}" stroke-width="3"/><path d="M12 30c3-1 5-4 6-8M36 30c-3-1-5-4-6-8M14 22c2 0 3-1 4-3M34 22c-2 0-3-1-4-3" stroke="${on ? 'var(--star-d)' : 'var(--muted)'}" stroke-width="2" fill="none" stroke-linecap="round"/><text x="24" y="29" text-anchor="middle" font-family="GFS Didot, serif" font-size="15" fill="${on ? 'var(--ink)' : 'var(--muted)'}">${esc(b ? b.name[0] : '?')}</text></svg>`;
 }
+/* ---------- Salvataggio dei progressi ---------- */
+const BADGE_IDS = () => BADGES.map((b) => b.id);
+const LESSON_IDS = () => FLAT.map((f) => f.lesson.id);
+function sinceText(t) {
+  if (!t) return 'mai';
+  const d = daysBetween(dayKey(new Date(t)), dayKey());
+  return d <= 0 ? 'oggi' : d === 1 ? 'ieri' : d + ' giorni fa';
+}
+function saveCard() {
+  const old = !S.backupAt || Date.now() - S.backupAt > 7 * 864e5;
+  return `<section class="card savecard"><div class="save-head"><span class="save-dot ${saveFailed ? 'bad' : ''}" aria-hidden="true">${saveFailed ? I.close : I.check2}</span><div><b>${saveFailed ? 'Il browser non permette di salvare' : 'Progressi salvati su questo dispositivo'}</b><span>${saveFailed ? 'Usa il codice di salvataggio prima di chiudere la pagina.' : 'Si salvano da soli dopo ogni risposta. Ultima copia di sicurezza: ' + sinceText(S.backupAt) + '.'}</span></div></div>
+    ${old && S.stats.lessons ? '<p class="note save-tip">Per non perderli se cambi telefono o cancelli i dati del browser, tieni da parte il tuo codice di salvataggio.</p>' : ''}
+    <div class="save-actions"><button class="btn block" data-act="saveCode">${I.keys}Codice di salvataggio</button><button class="btn ghost" data-act="export">${I.install}<span>File completo</span></button></div>
+    <button class="linkbtn" data-act="restoreSheet">Hai già un codice o un file? Ripristina i progressi</button></section>`;
+}
+function codeSheet(mode) {
+  const code = SV.encode(S, LESSON_IDS(), BADGE_IDS());
+  const body = mode === 'restore' ? '' : `<p>Questo codice contiene percorso, stelle, punti, serie, insegne e impostazioni. Copialo dove vuoi (note, messaggi, quaderno): su un altro dispositivo lo inserisci qui per ritrovare tutto.</p>
+    <div class="savecode" id="savecode" tabindex="0" aria-label="Codice di salvataggio">${esc(code)}</div>
+    <div class="save-actions"><button class="btn block" data-act="copyCode">${I.cards}Copia il codice</button></div>
+    <p class="note">Il ripasso degli errori e le schede del lessico restano solo nella copia completa su file.</p><hr class="sep">`;
+  openSheet(mode === 'restore' ? 'Ripristina i progressi' : 'Codice di salvataggio', body + `
+    <label for="codeIn"><b>Inserisci un codice</b></label><textarea id="codeIn" class="typed codein" rows="3" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Per esempio 1A2B-C3D4-…"></textarea>
+    <p class="note" id="codeMsg" role="status"></p>
+    <div class="save-actions"><button class="btn block" data-act="restoreCode">Ripristina dal codice</button><button class="btn ghost" data-act="import">${I.install}<span>Da file</span></button></div>`);
+}
+function applyRestore(part) {
+  const keepOnb = { onboarded: true, v: 2 };
+  const def = DEFAULT();
+  S = Object.assign(def, part, keepOnb, { stats: Object.assign(def.stats, part.stats || {}), settings: Object.assign(def.settings, part.settings || {}), course: Object.assign(def.course, part.course || {}), prac: Object.assign(def.prac, part.prac || {}) });
+  S.backupAt = Date.now();
+  onb = null; syncTopics(); save(); applyTheme(); closeSheet(); VIEW = 'path'; render(); window.scrollTo(0, 0);
+  toast('Progressi ripristinati.');
+}
 function viewMe() {
   const rk = rankOf(S.xp);
   const acc = S.stats.answered ? Math.round((S.stats.correct / S.stats.answered) * 100) : 0;
@@ -1266,6 +1338,7 @@ function viewMe() {
   const sw = (k, label, sub) => `<div class="setting"><div><b>${label}</b><span>${sub}</span></div><label class="switch"><input type="checkbox" data-set="${k}" ${set[k] === true || set[k] === 'lenient' || set[k] === 'keys' ? 'checked' : ''} aria-label="${esc(label)}"><i></i></label></div>`;
   const cu = FLAT[currentIdx()];
   return `<div style="display:flex;align-items:center;gap:14px;margin-top:18px">${ermes('happy', 72)}<div><h1 style="margin:0">${S.name ? esc(S.name) : 'Il tuo profilo'}</h1><div class="note">${gr(rk.r.name)} · ${esc(rk.r.tr)}</div></div></div>
+    ${saveCard()}
     <div class="stats3"><div class="stat" style="--c:var(--pri)"><small>Serie</small><b>${effectiveStreak()}</b></div><div class="stat" style="--c:var(--star)"><small>XP</small><b>${S.xp}</b></div><div class="stat" style="--c:var(--good)"><small>Precisione</small><b>${acc}%</b></div></div>
     <section class="card"><h2>Ultimi sette giorni</h2>${weekSvg()}<p class="note">Lezioni completate: ${S.stats.lessons} · unità superate: ${doneUnits()} su ${UNITS.length} · scudi: ${S.shields}</p></section>
     <p class="section-title">Insegne</p><section class="card"><div class="badges">${BADGES.map((b) => `<div class="badge ${S.badges[b.id] ? '' : 'off'}">${medal(b.id, !!S.badges[b.id])}<b lang="grc">${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join('')}</div></section>
@@ -1281,7 +1354,6 @@ function viewMe() {
     <div class="setting"><div><b>Tema</b><span>Colori dell’app</span></div><div class="seg">${[['auto', 'Auto'], ['light', 'Chiaro'], ['dark', 'Scuro']].map(([v, l]) => `<button data-act="theme" data-v="${v}" aria-pressed="${set.theme === v}">${l}</button>`).join('')}</div></div>
     <div class="setting"><div><b>Installa l’app</b><span>${isStandalone() ? 'Hermeneus è già installata.' : 'Sul telefono funziona anche senza rete.'}</span></div><button class="btn small" data-act="install" ${isStandalone() ? 'disabled' : ''}>${I.install}Installa</button></div>
     <div class="setting"><div><b>Nome</b><span>Facoltativo, resta sul dispositivo</span></div><button class="btn small ghost" data-act="rename">Cambia</button></div>
-    <div class="setting"><div><b>Copia di sicurezza</b><span>Salva o ripristina i progressi in un file</span></div><div class="seg"><button data-act="export">Salva</button><button data-act="import">Ripristina</button></div></div>
     <div class="setting"><div><b>Azzera i progressi</b><span>Cancella tutto da questo dispositivo</span></div><button class="btn small err" data-act="reset">Azzera</button></div></section>
     <section class="card"><h2>Informazioni</h2><p class="note">Hermeneus funziona tutto sul tuo dispositivo: nessun account, nessuna raccolta di dati, nessuna intelligenza artificiale. Pronuncia erasmiana della scuola italiana, letta dalla sintesi vocale del dispositivo. Caratteri: Gentium Plus, GFS Didot, Rubik (licenza SIL OFL 1.1). Dizionario online facoltativo: Wikizionario (CC BY-SA).</p>
     <p class="note">${E.LEX.length} lemmi · ${UNITS.length} unità · ${FLAT.length} lezioni · ${BANK.length} frasi verificate · ${B.SENTENTIAE.length} massime.</p></section>`;
@@ -1300,7 +1372,8 @@ function drawOnb() {
   if (onb.step === 0) {
     h += `<div style="text-align:center">${ermes('cheer', 150)}</div><h1 style="text-align:center">Χαῖρε! Io sono Ermes.</h1><p style="text-align:center">Il messaggero degli dèi, protettore dei viaggiatori e degli interpreti. Ti guido nel greco, una lezione alla volta: dieci minuti al giorno bastano.</p>
       <section class="card"><label for="nm"><b>Come ti chiami?</b> <span class="muted">(facoltativo)</span></label><input id="nm" class="typed" style="margin-top:8px" maxlength="24" autocomplete="off" value="${esc(onb.name)}" placeholder="Nome o soprannome"><p class="note" style="margin-top:10px">Tutto resta su questo dispositivo: nessun account, nessun dato inviato a nessuno.</p></section>
-      <button class="btn block" data-act="onbNext">Cominciamo</button>`;
+      <button class="btn block" data-act="onbNext">Cominciamo</button>
+      <button class="linkbtn" style="margin-top:14px" data-act="restoreSheet">Hai già usato Hermeneus? Ripristina i progressi</button>`;
   } else if (onb.step === 1) {
     h += say('Dove sei arrivato con il programma di classe? Apro le unità che hai già studiato; le altre si sbloccano facendo le lezioni.', 'think', 80) + placementList(onb.place, 'onbPlace') + `<button class="btn block" style="margin-top:8px" data-act="onbNext">Avanti</button>`;
   } else {
@@ -1344,7 +1417,8 @@ function hint() {
 }
 function rerenderKeep(focusSel) { const y = window.scrollY; render(); window.scrollTo(0, y); const b = focusSel && $(focusSel); if (b) b.focus({ preventScroll: true }); }
 const ACT = {
-  tab: (el) => { VIEW = el.dataset.v; openNode = null; render(); window.scrollTo(0, 0); const m = $('#main'); if (m) m.focus({ preventScroll: true }); if (VIEW === 'path') setTimeout(scrollToCurrent, 60); },
+  tab: (el) => { VIEW = el.dataset.v; openNode = null; render(); window.scrollTo(0, 0); const m = $('#main'); if (m) m.focus({ preventScroll: true }); },
+  jump: () => scrollToCurrent(),
   node: (el) => { const i = +el.dataset.i; openNode = openNode === i ? null : i; rerenderKeep(`.node[data-i="${i}"]`); },
   startLesson: (el) => { openNode = null; startLesson(+el.dataset.i); },
   startLessonTeach: (el) => { openNode = null; startLesson(+el.dataset.i, { teach: true }); },
@@ -1352,9 +1426,10 @@ const ACT = {
   goUnit: (el) => { VIEW = 'path'; render(); const u = $('#unit-' + el.dataset.u); if (u) u.scrollIntoView({ block: 'start' }); },
   practice: (el) => startPractice(el.dataset.m),
   pracUnit: (el) => { S.prac.unit = el.dataset.u; save(); rerenderKeep(`[data-act="pracUnit"][data-u="${el.dataset.u}"]`); },
+  pracLevel: (el) => { S.prac.level = el.dataset.v; save(); rerenderKeep(`[data-act="pracLevel"][data-v="${el.dataset.v}"]`); },
   pracType: (el) => { S.prac.type = el.dataset.v; save(); rerenderKeep(`[data-act="pracType"][data-v="${el.dataset.v}"]`); },
   topic: (el) => { VIEW = 'topic:' + el.dataset.t; openNode = null; render(); window.scrollTo(0, 0); },
-  quit: () => { const go = () => { SES = null; closeOverlay(); render(); }; if (SES && SES.i > 0 && !SES.done) askConfirm('Vuoi davvero uscire? I progressi di questa lezione andranno persi.', 'Esci', go, true, 'sad'); else go(); },
+  quit: () => { const go = () => { const y = SES ? SES.backY : 0; SES = null; closeOverlay(); render(); window.scrollTo(0, y); }; if (SES && SES.i > 0 && !SES.done) askConfirm('Vuoi davvero uscire? I progressi di questa lezione andranno persi.', 'Esci', go, true, 'sad'); else go(); },
   modalOk: () => { const i = $('#mdIn'); const v = i ? i.value : true; const cb = modalCb; modalCb = null; closeModal(); if (cb) cb(v); },
   check: () => doCheck(),
   next: () => { SES.i++; renderItem(); },
@@ -1386,13 +1461,36 @@ const ACT = {
   kbx: () => { const t = $('#typed'); if (!t || t.readOnly) return; const a = t.selectionStart ?? t.value.length; const chars = [...t.value.slice(0, a)]; chars.pop(); t.value = chars.join('') + t.value.slice(a); normalizeTyped(t, chars.join('').length); const b = $('#checkBtn'); if (b) b.disabled = !t.value.trim(); },
   kbcase: () => { kbUpper = !kbUpper; toast(kbUpper ? 'Prossima lettera maiuscola.' : 'Minuscole.'); },
   placement: () => placementSheet(),
-  setPlace: (el) => { const before = S.course.unlocked; placeAt(el.dataset.u || null); S.course.unlocked = Math.max(before, S.course.unlocked); syncTopics(); save(); closeSheet(); render(); toast('Percorso aggiornato.'); },
+  setPlace: (el) => {
+    const before = S.course.unlocked, u = el.dataset.u || null;
+    const apply = () => { placeAt(u); save(); closeSheet(); render(); window.scrollTo(0, 0); toast('Percorso aggiornato.'); };
+    const ui = u ? unitIdx(u) : -1;
+    const target = ui < 0 ? 0 : Math.min(FLAT.length - 1, lastLessonIdx(ui) + 1);
+    if (target < before) { closeSheet(); askConfirm(ui < 0 ? 'Ricominciare dall’alfabeto? Le unità successive si richiudono; stelle e punti restano salvati.' : `Tornare a «${UNITS[Math.min(UNITS.length - 1, ui + 1)].title}»? Le unità successive si richiudono; stelle e punti restano salvati.`, 'Conferma', apply); }
+    else apply();
+  },
   goal: (el) => { S.goal = +el.dataset.v; save(); render(); },
   theme: (el) => { S.settings.theme = el.dataset.v; save(); applyTheme(); render(); },
   install: () => installFlow(),
   rename: () => askText('Il tuo nome (facoltativo)', S.name, (n) => { S.name = String(n).trim().slice(0, 24); save(); render(); }),
-  export: () => { const blob = new Blob([JSON.stringify(S)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hermeneus-progressi-' + dayKey() + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); },
-  import: () => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'application/json,.json'; i.onchange = () => { const f = i.files[0]; if (!f) return; f.text().then((t) => { try { const d = JSON.parse(t); if (d && (d.v === 1 || d.v === 2)) { localStorage.setItem(KEY, JSON.stringify(d)); load(); applyTheme(); render(); toast('Progressi ripristinati.'); } else toast('File non valido.'); } catch (e) { toast('File non valido.'); } }); }; i.click(); },
+  saveCode: () => { S.backupAt = Date.now(); save(); codeSheet('save'); },
+  restoreSheet: () => codeSheet('restore'),
+  copyCode: () => {
+    const el = $('#savecode'); if (!el) return;
+    const done = () => toast('Codice copiato.');
+    const fallback = () => { const r = document.createRange(); r.selectNodeContents(el); const sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); toast('Codice selezionato: copialo con Copia.'); };
+    try { navigator.clipboard.writeText(el.textContent.trim()).then(done, fallback); } catch (e) { fallback(); }
+  },
+  restoreCode: () => {
+    const v = ($('#codeIn') || {}).value || '';
+    const msg = $('#codeMsg');
+    let part;
+    try { part = SV.decode(v, LESSON_IDS(), BADGE_IDS()); } catch (e) { if (msg) { msg.textContent = e.message; msg.classList.add('bad'); } return; }
+    const go = () => applyRestore(part);
+    if (S.onboarded && (S.xp || S.stats.lessons)) { closeSheet(); askConfirm('Sostituire i progressi di questo dispositivo con quelli del codice?', 'Ripristina', go); } else go();
+  },
+  export: () => { const blob = new Blob([JSON.stringify(S)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hermeneus-progressi-' + dayKey() + '.json'; S.backupAt = Date.now(); save(); document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); },
+  import: () => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'application/json,.json'; i.onchange = () => { const f = i.files[0]; if (!f) return; f.text().then((t) => { try { const d = JSON.parse(t); if (d && (d.v === 1 || d.v === 2)) { localStorage.setItem(KEY, JSON.stringify(d)); load(); S.backupAt = Date.now(); onb = null; save(); closeSheet(); applyTheme(); VIEW = 'path'; render(); toast('Progressi ripristinati.'); } else toast('File non valido.'); } catch (e) { toast('File non valido.'); } }); }; i.click(); },
   reset: () => askConfirm('Cancellare tutti i progressi da questo dispositivo?', 'Cancella', () => { try { localStorage.removeItem(KEY); } catch (e) { /* ignora */ } S = DEFAULT(); onb = null; applyTheme(); render(); }, true, 'sad'),
   search: () => searchForm(),
   flashShow: () => { flashCur.shown = true; drawFlash(); },
@@ -1405,7 +1503,7 @@ const ACT = {
     const acc = $('#onbAcc');
     S.name = onb.name; S.goal = onb.goal; S.settings.accents = acc && acc.checked ? 'lenient' : 'strict';
     placeAt(onb.place || null);
-    S.onboarded = true; save(); onb = null; VIEW = 'path'; render(); setTimeout(scrollToCurrent, 80);
+    S.onboarded = true; save(); onb = null; VIEW = 'path'; render(); window.scrollTo(0, 0);
   },
 };
 
@@ -1452,6 +1550,15 @@ document.addEventListener('input', (ev) => {
 });
 window.addEventListener('resize', closePop);
 window.addEventListener('scroll', closePop, true);
+function updateJump() {
+  const j = $('#jump'), n = $('.node.current');
+  if (!j || !n) return;
+  const r = n.getBoundingClientRect();
+  const off = r.bottom < 70 || r.top > innerHeight - 90;
+  j.hidden = !off;
+  j.classList.toggle('up', r.bottom < 70);
+}
+window.addEventListener('scroll', updateJump, { passive: true });
 
 /* ---------- Avvio ---------- */
 function warmLoop() {
@@ -1461,11 +1568,11 @@ function warmLoop() {
 }
 function boot() {
   load();
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) { /* ignora */ }
   applyTheme();
   const mq = matchMedia('(prefers-color-scheme: dark)');
   if (mq.addEventListener) mq.addEventListener('change', applyTheme);
   render();
-  if (S.onboarded) setTimeout(scrollToCurrent, 120);
   warmLoop();
   try { if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; } } catch (e) { /* ignora */ }
   if (SITE && 'serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});

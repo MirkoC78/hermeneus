@@ -40,7 +40,7 @@ const fontCSS = FONTS.map(([fam, w, file, range]) => {
 }).join('\n');
 
 // 3. Script nell'ordine di dipendenza
-const MODULES = ['src/greek.js', 'src/morph.js', 'src/lexicon.js', 'src/sentence.js', 'src/italian.js', 'src/semantic.js', 'src/generator.js', 'src/course.js', 'src/lessons.js', 'src/topics.js', 'src/bank.js'];
+const MODULES = ['src/greek.js', 'src/morph.js', 'src/lexicon.js', 'src/sentence.js', 'src/italian.js', 'src/semantic.js', 'src/generator.js', 'src/course.js', 'src/lessons.js', 'src/topics.js', 'src/bank.js', 'src/savecode.js'];
 const code = MODULES.map((m) => `/* ---- ${m} ---- */\n` + r(m)).join('\n;\n') + `\n;window.HERM_PRE = ${JSON.stringify(pre)};\n;\n` + r('src/app.js');
 const css = r('src/app.css');
 const png = (f) => 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, 'assets', f)).toString('base64');
