@@ -60,7 +60,12 @@ const matches = (n, spec) => {
     if (t.some((c) => c[0] === '!' && n.cls.has(c.slice(1)))) return false;
     return t.some((c) => c[0] !== '!' && (c[0] === '=' ? n.e.lemma === G.nfc(c.slice(1)) : n.cls.has(c)));
   };
-  function nounsFor(ctx, spec) { return NOUNS.filter((n) => ctx.T.has(n.e.topic) && matches(n, spec)); }
+  // disponibilità: argomento scelto e, se la lezione lo limita, vocabolario già incontrato
+  const inLex = (ctx, e) => !ctx.lex || ctx.lex.has(e.lemma);
+  const nOK = (ctx, n) => ctx.T.has(n.e.topic) && inLex(ctx, n.e);
+  const aOK = (ctx, a) => ctx.T.has(a.e.topic) && inLex(ctx, a.e);
+  const vOK = (ctx, v) => ctx.T.has(v.e.topic) && inLex(ctx, v.e);
+  function nounsFor(ctx, spec) { return NOUNS.filter((n) => nOK(ctx, n) && matches(n, spec)); }
   const formKey = (e, key, g) => e.forms.find((f) => f.key === key && (!g || !f.g || f.g === g)) || null;
 
   /* ---------- Gruppi nominali ---------- */
@@ -73,7 +78,7 @@ const matches = (n, spec) => {
     if (n.sg) num = 's';
     const np = { n, num, adj: null };
     if (o.adj !== false && ctx.T.has('agg1') && chance(o.adjP ?? 0.3)) {
-      const ok = ADJS.filter((a) => ctx.T.has(a.e.topic) && a.cls.some((c) => n.cls.has(c) || n.e.lemma === c));
+      const ok = ADJS.filter((a) => aOK(ctx, a) && a.cls.some((c) => n.cls.has(c) || n.e.lemma === c));
       if (ok.length) np.adj = pick(ok);
     }
     // dimostrativo in posizione predicativa: οὗτος ὁ ἀνήρ
@@ -155,6 +160,7 @@ const matches = (n, spec) => {
   function chooseTense(ctx, V, passive, p) {
     const opts = [];
     for (const t of ['pres', 'impf', 'fut', 'aor', 'pf']) {
+      if (ctx.tenses && !ctx.tenses.includes(t)) continue;
       const voice = passive ? (t === 'aor' || t === 'fut' ? 'pass' : 'mp') : activeVoice(V, t, 'ind', p);
       if (!voice) continue;
       const f = vform(V, t, 'ind', voice, p);
@@ -210,7 +216,7 @@ const matches = (n, spec) => {
   // o: np (soggetto espresso), person (persona fissa, soggetto sottinteso), tense (tempo fisso), vf (filtro sui verbi),
   //    sCls (classi ammesse per il soggetto), neg (negazione)
   function bBasic(ctx, o = {}) {
-    const V = pick(VERBS.filter((v) => !v.inf && !v.say && ctx.T.has(v.e.topic) && (!o.vf || o.vf(v)) && (!o.sCls || v.s.split(' ').some((c) => o.sCls.includes(c) || c === 'H'))));
+    const V = pick(VERBS.filter((v) => !v.inf && !v.say && vOK(ctx, v) && (!o.vf || o.vf(v)) && (!o.sCls || v.s.split(' ').some((c) => o.sCls.includes(c) || c === 'H'))));
     if (!V) return null;
     const personal = o.person != null || (!o.np && chance(0.25));
     const person = personal ? (o.person != null ? o.person : pick([0, 1, 3, 4])) : null;
@@ -280,7 +286,7 @@ const matches = (n, spec) => {
   }
   // passivo con complemento d'agente
   function bPass(ctx) {
-    const V = pick(VERBS.filter((v) => v.pass && ctx.T.has(v.e.topic === 'mi' ? 'mi' : v.e.topic)));
+    const V = pick(VERBS.filter((v) => v.pass && vOK(ctx, v)));
     if (!V) return null;
     const sNP = mkNP(ctx, V.o);
     if (!sNP) return null;
@@ -308,10 +314,10 @@ const matches = (n, spec) => {
   // soggetto + εἰμί + aggettivo predicativo
   function bCopula(ctx, o = {}) {
     const EIMI = lex('v', 'εἰμί');
-    const adjs = ADJS.filter((a) => ctx.T.has(a.e.topic) && (!o.cmp || a.e.cmp));
+    const adjs = ADJS.filter((a) => aOK(ctx, a) && (!o.cmp || a.e.cmp));
     if (!adjs.length) return null;
     const A = pick(adjs);
-    const nouns = NOUNS.filter((n) => ctx.T.has(n.e.topic) && A.cls.some((c) => n.cls.has(c)));
+    const nouns = NOUNS.filter((n) => nOK(ctx, n) && A.cls.some((c) => n.cls.has(c)));
     if (!nouns.length) return null;
     const n = pick(nouns);
     const sNP = { n, num: n.sg ? 's' : chance(0.4) ? 'p' : 's', adj: null };
@@ -350,7 +356,7 @@ const matches = (n, spec) => {
   }
   // vocativo e imperativo
   function bImper(ctx) {
-    const V = pick(VERBS.filter((v) => !v.inf && !v.say && v.o && ctx.T.has(v.e.topic === 'mi' ? 'mi' : v.e.topic)));
+    const V = pick(VERBS.filter((v) => !v.inf && !v.say && v.o && vOK(ctx, v)));
     if (!V) return null;
     const plural = chance(0.5);
     const p = plural ? '2p' : '2s';
@@ -362,7 +368,7 @@ const matches = (n, spec) => {
     const oNP = mkNP(ctx, V.o);
     if (!oNP) return null;
     const oT = grNP(oNP, V.oc || 'acc');
-    const vocN = NOUNS.filter((n) => ctx.T.has(n.e.topic) && matches(n, V.s) && !n.o.noart && formKey(n.e, `n.voc.${plural ? 'p' : 's'}`, n.g));
+    const vocN = NOUNS.filter((n) => nOK(ctx, n) && matches(n, V.s) && !n.o.noart && formKey(n.e, `n.voc.${plural ? 'p' : 's'}`, n.g));
     const voc = vocN.length && chance(0.6) ? pick(vocN) : null;
     let vocT = [];
     if (voc) vocT = [S.tok(INV('ὦ').forms[0]), S.tok(formKey(voc.e, `n.voc.${plural ? 'p' : 's'}`, voc.g)), { p: ',' }];
@@ -384,14 +390,14 @@ const matches = (n, spec) => {
   }
   // participio attributivo o sostantivato come soggetto
   function bPart(ctx) {
-    const V = pick(VERBS.filter((v) => v.pp && !v.o && !v.req && v.la !== 'ἀποθνῄσκω' && ctx.T.has(v.e.topic)));
+    const V = pick(VERBS.filter((v) => v.pp && !v.o && !v.req && v.la !== 'ἀποθνῄσκω' && vOK(ctx, v)));
     if (!V) return null;
     const t = ctx.T.has('aor') && chance(0.4) ? 'aor' : 'pres';
     const voice = activeVoice(V, t, 'ind', '3s');
     if (!voice) return null;
-    const main = pick(VERBS.filter((v) => v.o && !v.inf && !v.say && v !== V && ctx.T.has(v.e.topic)));
+    const main = pick(VERBS.filter((v) => v.o && !v.inf && !v.say && v !== V && vOK(ctx, v)));
     if (!main) return null;
-    const sN = NOUNS.filter((n) => ctx.T.has(n.e.topic) && matches(n, V.s) && matches(n, main.s) && !n.o.noart);
+    const sN = NOUNS.filter((n) => nOK(ctx, n) && matches(n, V.s) && matches(n, main.s) && !n.o.noart);
     if (!sN.length) return null;
     const n = pick(sN);
     const num = chance(0.5) ? 'p' : 's';
@@ -426,10 +432,10 @@ const matches = (n, spec) => {
   }
   // genitivo assoluto (participio presente) + principale
   function bGenAbs(ctx) {
-    const V = pick(VERBS.filter((v) => v.pp && !v.o && !v.req && v.la !== 'ἀποθνῄσκω' && ctx.T.has(v.e.topic)));
+    const V = pick(VERBS.filter((v) => v.pp && !v.o && !v.req && v.la !== 'ἀποθνῄσκω' && vOK(ctx, v)));
     if (!V) return null;
     const voice = activeVoice(V, 'pres', 'ind', '3s');
-    const gN = NOUNS.filter((n) => ctx.T.has(n.e.topic) && matches(n, V.s) && !n.o.noart);
+    const gN = NOUNS.filter((n) => nOK(ctx, n) && matches(n, V.s) && !n.o.noart);
     if (!voice || !gN.length) return null;
     const n = pick(gN);
     const num = n.sg ? 's' : chance(0.6) ? 'p' : 's';
@@ -457,9 +463,9 @@ const matches = (n, spec) => {
   // verbo servile o dichiarativo + infinito
   function bInf(ctx) {
     const say = ctx.T.has('inf') && chance(0.5);
-    const M = pick(VERBS.filter((v) => (say ? v.say : v.inf) && ctx.T.has(v.e.topic === 'mi' ? 'mi' : v.e.topic)));
+    const M = pick(VERBS.filter((v) => (say ? v.say : v.inf) && vOK(ctx, v)));
     if (!M) return null;
-    const V = pick(VERBS.filter((v) => v.o && !v.inf && !v.say && ctx.T.has(v.e.topic)));
+    const V = pick(VERBS.filter((v) => v.o && !v.inf && !v.say && vOK(ctx, v)));
     if (!V) return null;
     const sNP = mkNP(ctx, M.s);
     if (!sNP) return null;
@@ -494,8 +500,8 @@ const matches = (n, spec) => {
     const PEMPO = VERBS.find((v) => v.la === 'πέμπω');
     const sNP = mkNP(ctx, 'rul fam civ', { adj: false });
     const oNP = mkNP(ctx, 'msg mil srv', { avoid: sNP ? [sNP.n] : [], adj: false });
-    if (!PEMPO || !sNP || !oNP) return null;
-    const V = pick(VERBS.filter((v) => v.o && !v.inf && !v.say && v !== PEMPO && !v.oc && ctx.T.has(v.e.topic) && matches(oNP.n, v.s)));
+    if (!PEMPO || !vOK(ctx, PEMPO) || !sNP || !oNP) return null;
+    const V = pick(VERBS.filter((v) => v.o && !v.inf && !v.say && v !== PEMPO && !v.oc && vOK(ctx, v) && matches(oNP.n, v.s)));
     if (!V) return null;
     const gp = grSubjPers(sNP);
     const tt = chooseTense(ctx, PEMPO, false, gp);
@@ -540,12 +546,31 @@ const matches = (n, spec) => {
     return finish(ctx, toks, itFn, ['sub'], conj + ' + indicativo: proposizione temporale (fatto reale).');
   }
   const pick2 = (i, a, b) => (i ? b : a);
+  // sintagma senza verbo: «ἡ τοῦ ναύτου τόλμα» (genitivo in posizione attributiva) o «ὁ ἀγαθὸς ποιητής»
+  function bPhrase(ctx) {
+    const n1 = mkNP(ctx, 'H P T X A', { demo: false, adjP: 0.45 });
+    if (!n1 || n1.n.o.noart) return null;
+    const withGen = !n1.adj || chance(0.5);
+    const n2 = withGen ? mkNP(ctx, 'H', { avoid: [n1.n], adj: false, demo: false }) : null;
+    if (withGen && (!n2 || n2.n.o.noart)) return null;
+    const t1 = grNP(n1, 'nom');
+    const t2 = n2 ? grNP(n2, 'gen') : [];
+    if (!t1 || !t2) return null;
+    const toks = [t1[0], ...t2, ...t1.slice(1)];
+    const itFn = (ch, reg) => {
+      const sl = (k, n) => { reg(k, n); return ch(k); };
+      let s = itStr(itNP(n1, sl('a', n1.n.it.length)));
+      if (n2) s += ' ' + itStr(itNP(n2, sl('b', n2.n.it.length)), 'di');
+      return s;
+    };
+    return finish(ctx, toks, itFn, [], n2 ? 'Il genitivo fra articolo e nome è in posizione attributiva: «di…».' : 'Aggettivo fra articolo e nome: posizione attributiva.');
+  }
   // soggetto con una relativa: «il soldato, che rimane nella città, custodisce la casa»
   function bRel(ctx) {
-    const V2 = pick(VERBS.filter((v) => v.pp && !v.o && !v.req && v.la !== 'ἀποθνῄσκω' && ctx.T.has(v.e.topic)));
-    const main = pick(VERBS.filter((v) => v.o && !v.inf && !v.say && ctx.T.has(v.e.topic)));
+    const V2 = pick(VERBS.filter((v) => v.pp && !v.o && !v.req && v.la !== 'ἀποθνῄσκω' && vOK(ctx, v)));
+    const main = pick(VERBS.filter((v) => v.o && !v.inf && !v.say && vOK(ctx, v)));
     if (!V2 || !main) return null;
-    const sN = NOUNS.filter((n) => ctx.T.has(n.e.topic) && matches(n, V2.s) && matches(n, main.s));
+    const sN = NOUNS.filter((n) => nOK(ctx, n) && matches(n, V2.s) && matches(n, main.s));
     if (!sN.length) return null;
     const n = pick(sN);
     const num = n.sg ? 's' : chance(0.5) ? 'p' : 's';
@@ -605,9 +630,9 @@ const matches = (n, spec) => {
 
   // costruttori adatti a ciascun argomento (con pesi)
   const BY_FOCUS = {
-    art: [[bBasic, 1]], d1: [[bBasic, 2], [bCopula, 1]], pres: [[bBasic, 3], [bImper, 1], [bCopula, 1]], d2: [[bBasic, 2], [bCopula, 1]],
-    agg1: [[bCopula, 2], [bBasic, 1]], prep: [[bBasic, 2]], mp: [[bPass, 3], [bBasic, 1]], impf: [[bBasic, 2], [bPass, 1]],
-    contr: [[bBasic, 2], [bPass, 1]], d3: [[bBasic, 2], [bCopula, 1]], agg2: [[bCopula, 1]], pron: [[bBasic, 1]], rel: [[bRel, 1]],
+    art: [[bBasic, 1], [bPhrase, 1]], d1: [[bBasic, 2], [bCopula, 1], [bPhrase, 1]], pres: [[bBasic, 3], [bImper, 1], [bCopula, 1]], d2: [[bBasic, 2], [bCopula, 1], [bPhrase, 1]],
+    agg1: [[bCopula, 2], [bBasic, 1], [bPhrase, 1]], prep: [[bBasic, 2]], mp: [[bPass, 3], [bBasic, 1]], impf: [[bBasic, 2], [bPass, 1]],
+    contr: [[bBasic, 2], [bPass, 1]], d3: [[bBasic, 2], [bCopula, 1], [bPhrase, 1]], agg2: [[bCopula, 1]], pron: [[bBasic, 1]], rel: [[bRel, 1]],
     fut: [[bBasic, 2], [bPass, 1]], aor: [[bBasic, 2], [bPass, 1], [bImper, 1], [bTemp, 1]], part: [[bPart, 2], [bGenAbs, 1]],
     inf: [[bInf, 1]], mi: [[bBasic, 1]], cong: [[bFinal, 1]], sub: [[bTemp, 1]], perf: [[bMenDe, 1], [bBasic, 1]],
   };
@@ -617,15 +642,18 @@ const matches = (n, spec) => {
   function generate(selected, focus, o = {}) {
     init();
     const T = new Set(selected);
-    if (!T.has('pres') || !T.has('art')) return null;
+    if (!T.has('art')) return null;
+    const noVerb = !T.has('pres');
     const topics = [...T].filter((t) => BY_FOCUS[t]);
     const avoid = new Set(o.avoid || []);
     for (let attempt = 0; attempt < 80; attempt++) {
       const f = focus && T.has(focus) && attempt < 50 ? focus : pick(topics);
-      const ctx = { T, focus: f, focusT: FOCUS_T[f] || null };
+      const ctx = { T, focus: f, focusT: FOCUS_T[f] || null, lex: o.lex || null, tenses: o.tenses || null };
       let s = null;
       try {
-        if (SPECIAL[f] && chance(0.7)) s = SPECIAL[f](ctx);
+        if (noVerb || (o.phrase && chance(0.5))) s = bPhrase(ctx);
+        else if (o.simple && chance(0.5)) s = (chance(0.5) ? bBasic : bCopula)(ctx);
+        else if (SPECIAL[f] && chance(0.7)) s = SPECIAL[f](ctx);
         else {
           const list = BY_FOCUS[f] || [[bBasic, 1]];
           const tot = list.reduce((a, x) => a + x[1], 0);
@@ -636,7 +664,7 @@ const matches = (n, spec) => {
       } catch (e) { if (o.strict) throw e; s = null; }
       if (!s || avoid.has(s.gr)) continue;
       // la frase deve rientrare negli argomenti scelti e, se possibile, esercitare quello di focus
-      if (attempt < 50 && focus && T.has(focus) && !s.tags.includes(focus)) continue;
+      if (attempt < 50 && focus && T.has(focus) && !s.tags.includes(focus) && !noVerb) continue;
       s.focus = s.tags.includes(f) ? f : s.tags.slice().sort((a, b) => S.ORDER.indexOf(b) - S.ORDER.indexOf(a))[0];
       s.id = 'g' + hash(s.gr);
       s.src = 'gen';
@@ -647,6 +675,6 @@ const matches = (n, spec) => {
   function hash(str) { let h = 0; for (const c of str) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h).toString(36); }
   function seed(fn) { rand = fn || Math.random; }
 
-  root.HermGen = { generate, seed, init, _internal: { bRel, bBasic, bPass, bCopula, bImper, bPart, bGenAbs, bInf, bFinal, bTemp, bMenDe } };
+  root.HermGen = { generate, seed, init, _internal: { bPhrase, bRel, bBasic, bPass, bCopula, bImper, bPart, bGenAbs, bInf, bFinal, bTemp, bMenDe } };
   if (typeof module !== 'undefined') module.exports = root.HermGen;
 })(typeof window !== 'undefined' ? window : globalThis);
