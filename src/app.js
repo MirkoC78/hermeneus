@@ -84,60 +84,54 @@ const I = {
   accent: svg('<path d="M10 4 7 9"/><path d="M5 20c2-6 4-9 7-9s5 3 7 9"/>'),
   match: svg('<path d="M4 7h6M4 12h6M4 17h6M14 7h6M14 12h6M14 17h6"/>'),
 };
-const MARK = '<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="1" y="1" width="62" height="62" rx="17" fill="#231915"/><rect x="5" y="5" width="54" height="54" rx="14" fill="none" stroke="#E2804B" stroke-width="1.6" stroke-dasharray="2.5 2.5"/><path d="M13 51h38M13 51v-6h6v-4h-3v-3h8v7h6v-7h8v3h-3v4h6v6" fill="none" stroke="#E2804B" stroke-width="2.6" stroke-linejoin="round"/><text x="32" y="35" text-anchor="middle" font-family="GFS Didot, Gentium Plus, serif" font-size="31" fill="#F6E7D8">Ἑ</text></svg>';
+const MARK = '<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="1" y="1" width="62" height="62" rx="18" fill="#7C5CFF"/><text x="33" y="45" text-anchor="middle" font-family="GFS Didot, Gentium Plus, serif" font-size="36" fill="#FFFFFF">Ἑ</text></svg>';
 
 /* ---------- Ermes, la guida ---------- */
-// dipinto «a figure rosse»: la figura resta del colore dell'argilla, i dettagli sono in vernice nera,
-// le ali in bianco sovraddipinto. Umori: idle, happy, think, sad, cheer
+// personaggio da cartone: testa grande, petaso viola con le ali, mantello color menta.
+// Umori: idle, happy, think, sad, cheer
 let ermesN = 0;
 function ermes(mood = 'idle', size = 96) {
-  const G = '#231915', K = '#D9733B', W = '#F6EDE2';
-  const ln = (d, w = 1.6) => `<path d="${d}" fill="none" stroke="${G}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const D = '#2B2440', SKIN = '#FFD9BE', HAT = '#7C5CFF', HAT2 = '#9B82FF', CAPE = '#2DB57E', CAPE2 = '#1FA06C', HAIR = '#6B4A3A', W = '#FFFFFF';
+  const ln = (d, w = 2.2, col = D) => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const eye = (x, y, rx = 4.2, ry = 5.2) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${D}"/><circle cx="${x + 1.4}" cy="${y - 1.8}" r="1.6" fill="${W}"/><circle cx="${x - 1.2}" cy="${y + 1.6}" r=".7" fill="${W}"/>`;
   const eyes = {
-    idle: `<ellipse cx="43" cy="56" rx="2.5" ry="3.1" fill="${G}"/><ellipse cx="57" cy="56" rx="2.5" ry="3.1" fill="${G}"/><circle cx="43.8" cy="55" r=".9" fill="${W}"/><circle cx="57.8" cy="55" r=".9" fill="${W}"/>${ln('M38.6 50.2q4.4-2.4 8.8 0M52.6 50.2q4.4-2.4 8.8 0', 1.4)}`,
-    happy: `${ln('M39.6 57.2q3.4-4.2 6.8 0M53.6 57.2q3.4-4.2 6.8 0', 2)}${ln('M38.6 49.4q4.4-2.6 8.8 0M52.6 49.4q4.4-2.6 8.8 0', 1.4)}`,
-    cheer: `${ln('M39.2 57q3.8-5 7.6 0M53.2 57q3.8-5 7.6 0', 2.1)}${ln('M38.4 48.2q4.6-3.2 9.2 0M52.4 48.2q4.6-3.2 9.2 0', 1.4)}`,
-    think: `<ellipse cx="44.4" cy="54.6" rx="2.3" ry="2.9" fill="${G}"/><ellipse cx="58.4" cy="54.6" rx="2.3" ry="2.9" fill="${G}"/>${ln('M38.8 50.6q4.2-1.4 8.6.2M52.6 47.8q4.6-2.8 9 .4', 1.4)}`,
-    sad: `<ellipse cx="43" cy="57.4" rx="2.3" ry="2.8" fill="${G}"/><ellipse cx="57" cy="57.4" rx="2.3" ry="2.8" fill="${G}"/>${ln('M39 52.4l8-2.6M61 52.4l-8-2.6', 1.5)}`,
+    idle: eye(41, 60) + eye(59, 60),
+    happy: ln('M36.5 61q4.5-5.5 9 0M54.5 61q4.5-5.5 9 0', 2.8),
+    cheer: ln('M36 61.5q5-6.5 10 0M54 61.5q5-6.5 10 0', 3) + ln('M35 52.5q5-3 10 0M55 52.5q5-3 10 0', 2),
+    think: eye(42.5, 58.5, 3.8, 4.8) + eye(60.5, 58.5, 3.8, 4.8) + ln('M54.5 50.5q5-3.4 10 .2', 2.2),
+    sad: eye(41, 61.5, 3.8, 4.6) + eye(59, 61.5, 3.8, 4.6) + ln('M35.5 55.6l9-3M64.5 55.6l-9-3', 2.2),
   }[mood] || '';
   const mouth = {
-    idle: ln('M45 66.6q5 3.4 10 0', 1.8),
-    happy: `<path d="M43.6 65.2q6.4 7.4 12.8 0z" fill="${G}"/>`,
-    cheer: `<path d="M42.2 64.2q7.8 10.4 15.6 0z" fill="${G}"/><path d="M45.6 68.4q4.4 2.8 8.8 0" fill="none" stroke="#B5482A" stroke-width="1.6" stroke-linecap="round"/>`,
-    think: ln('M46.4 67.6l7.4-.8', 1.8),
-    sad: ln('M45 69q5-3.6 10 0', 1.8),
+    idle: ln('M44.5 71q5.5 4 11 0', 2.4),
+    happy: `<path d="M42.5 69.5q7.5 9 15 0z" fill="#7A2E45"/><path d="M45.5 73.6q4.5 2.6 9 0" fill="none" stroke="#FF8FAB" stroke-width="2.4" stroke-linecap="round"/>`,
+    cheer: `<path d="M41 68.5q9 12 18 0z" fill="#7A2E45"/><path d="M45 74.4q5 3.2 10 0" fill="none" stroke="#FF8FAB" stroke-width="2.8" stroke-linecap="round"/>`,
+    think: ln('M46 72.5l8.5-1.4', 2.4),
+    sad: ln('M44.5 74q5.5-4 11 0', 2.4),
   }[mood] || '';
-  const id = 'ermes' + (++ermesN);
+  const id = 'ermesHat' + (++ermesN);
   const cls = mood === 'cheer' ? 'cheer' : 'bob';
-  const wing = 'M37 33.6C29.6 27.6 21.4 26.4 14 29.2c6 .9 10.2 2.4 13.2 4.4-5.8-.2-9.6 1.2-12.4 3.6 6.8-.9 13-.8 21.6.3z';
-  const feathers = 'M30 31.2l-6.6-1.2M31.4 34.4l-8.6-.6';
-  const tilt = 'rotate(-22 36 35) translate(36 35) scale(1.25) translate(-36 -35)';
+  const wing = 'M30 35c-7-6.5-16-8-24-5 6.5 1 11 2.8 14 5-6.5 0-10.5 1.6-13.5 4.4 7.5-1.2 14.5-1.2 23.5.6z';
+  const feathers = 'M22.5 33.6l-7-1.4M23.6 37.3l-9-.4';
   return `<svg class="ermes ${cls}" width="${size}" height="${size}" viewBox="0 0 100 100" role="img" aria-label="Ermes, la tua guida">
-    <defs><clipPath id="${id}"><circle cx="50" cy="50" r="46"/></clipPath></defs>
-    <circle cx="50" cy="50" r="49" fill="${G}"/>
-    <g clip-path="url(#${id})"><g class="figure">
-      <path d="M12 104C14 84 29 76 50 76s36 8 38 28z" fill="${K}"/>
-      ${ln('M33 83c4 7 6 13 6 21M64 80c-2 8-4 15-4 24M50 76l-5 9')}
-      <circle cx="64.5" cy="80.5" r="2.4" fill="${W}" stroke="${G}" stroke-width=".8"/>
-      <path d="M42.5 66h15v12h-15z" fill="${K}"/>
-      <ellipse cx="32.6" cy="57.6" rx="2.6" ry="3.6" fill="${K}" stroke="${G}" stroke-width="1"/><ellipse cx="67.4" cy="57.6" rx="2.6" ry="3.6" fill="${K}" stroke="${G}" stroke-width="1"/>
-      <ellipse cx="50" cy="56.5" rx="17.4" ry="19" fill="${K}"/>
-      ${ln('M33.8 45.6a2.4 2.4 0 1 0 2.6 3.4M33.4 50.6a2.4 2.4 0 1 0 2.4 3.4M66.2 45.6a2.4 2.4 0 1 1-2.6 3.4M66.6 50.6a2.4 2.4 0 1 1-2.4 3.4', 1.3)}
-      <circle cx="38.6" cy="63" r="3.4" fill="#C2552A" opacity=".55"/><circle cx="61.4" cy="63" r="3.4" fill="#C2552A" opacity=".55"/>
-      ${ln('M50.4 55.6q-2.2 5 .2 6.6', 1.3)}
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${HAT2}"/><stop offset="1" stop-color="${HAT}"/></linearGradient></defs>
+    <g class="figure">
+      <path d="M22 100c1.5-13 12.5-21 28-21s26.5 8 28 21z" fill="${CAPE}"/>
+      <path d="M50 79c-6 0-11 1.4-15 3.8L50 93l15-10.2C61 80.4 56 79 50 79z" fill="${CAPE2}"/>
+      <circle cx="62" cy="84" r="3.2" fill="#FFC233" stroke="#E0A000" stroke-width="1"/>
+      <ellipse cx="25.5" cy="62" rx="4.4" ry="5.6" fill="${SKIN}"/><ellipse cx="74.5" cy="62" rx="4.4" ry="5.6" fill="${SKIN}"/>
+      <circle cx="50" cy="60" r="25" fill="${SKIN}"/>
+      <path d="M26 54c2-10 9-15 13-15 3 0 1 5 4 5s3-6 7-6 4 6 7 6 1-5 4-5c4 0 11 5 13 15-3-4-7-5-9-5-1 3-4 4-6 3-2 2-6 3-9 3s-7-1-9-3c-2 1-5 0-6-3-2 0-6 1-9 5z" fill="${HAIR}"/>
+      <circle cx="35" cy="68.5" r="4.4" fill="#FF8FAB" opacity=".55"/><circle cx="65" cy="68.5" r="4.4" fill="#FF8FAB" opacity=".55"/>
       ${eyes}${mouth}
-      <g transform="${tilt}"><g class="wing l"><path d="${wing}" fill="${W}" stroke="${G}" stroke-width="1.2"/>${ln(feathers, 1)}</g></g>
-      <g transform="translate(100 0) scale(-1 1)"><g transform="${tilt}"><g class="wing l"><path d="${wing}" fill="${W}" stroke="${G}" stroke-width="1.2"/>${ln(feathers, 1)}</g></g></g>
-      <path d="M35 40c0-12 7-19 15-19s15 7 15 19z" fill="${K}" stroke="${G}" stroke-width="1.6"/>
-      ${ln('M35.6 35.4c9.6 2.6 19.2 2.6 28.8 0', 2.6)}
-      <ellipse cx="50" cy="40.6" rx="29" ry="6.2" fill="${K}" stroke="${G}" stroke-width="1.6"/>
-      ${ln('M25 40.8c8 2.6 42 2.6 50 0', 1)}
-    </g></g>
-    <circle cx="50" cy="50" r="46" fill="none" stroke="${K}" stroke-width="2.2"/>
-    <circle cx="50" cy="50" r="48.6" fill="none" stroke="${K}" stroke-width=".9" stroke-dasharray="2.4 2.2"/>
+      <g transform="rotate(-14 30 37)"><g class="wing l"><path d="${wing}" fill="${W}" stroke="#9B82FF" stroke-width="1.8"/>${ln(feathers, 1.5, '#9B82FF')}</g></g>
+      <g transform="translate(100 0) scale(-1 1)"><g transform="rotate(-14 30 37)"><g class="wing l"><path d="${wing}" fill="${W}" stroke="#9B82FF" stroke-width="1.8"/>${ln(feathers, 1.5, '#9B82FF')}</g></g></g>
+      <path d="M31 40c0-13 8.5-21 19-21s19 8 19 21z" fill="url(#${id})"/>
+      <path d="M31.6 35.6c12 3.2 24.8 3.2 36.8 0l.6 4.4c-12.6 3.4-25.4 3.4-38 0z" fill="#FFC233"/>
+      <ellipse cx="50" cy="41.5" rx="33" ry="7" fill="${HAT}"/>
+      <ellipse cx="44" cy="27" rx="5" ry="2.6" fill="#FFFFFF" opacity=".35" transform="rotate(-20 44 27)"/>
+    </g>
   </svg>`;
 }
-
 const say = (text, mood = 'happy', size = 76) => `<div class="say">${ermes(mood, size)}<div class="bubble">${text}</div></div>`;
 
 /* ---------- Stato ---------- */
@@ -169,7 +163,7 @@ function applyTheme() {
   if (S.settings.theme === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', S.settings.theme);
   const dark = S.settings.theme === 'dark' || (S.settings.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   const m = $('meta[name="theme-color"]');
-  if (m) m.content = dark ? '#0D0907' : '#231915';
+  if (m) m.content = dark ? '#1E1A2B' : '#FFFFFF';
 }
 
 /* ---------- Percorso: sblocchi ---------- */
@@ -325,7 +319,7 @@ function confetti() {
   setTimeout(() => c.remove(), 4000);
   const dpr = window.devicePixelRatio || 1; c.width = innerWidth * dpr; c.height = innerHeight * dpr;
   const ctx = c.getContext('2d'); ctx.scale(dpr, dpr);
-  const cols = ['#C4561F', '#DDA126', '#4E7A1E', '#17698A', '#231915', '#E2804B'];
+  const cols = ['#7C5CFF', '#FFC233', '#2DB57E', '#3D8EF0', '#FF8FAB', '#F08A24'];
   const P = Array.from({ length: 110 }, () => ({ x: innerWidth / 2 + (Math.random() - 0.5) * 160, y: innerHeight * 0.35, vx: (Math.random() - 0.5) * 10, vy: -Math.random() * 10 - 3, r: Math.random() * 6 + 3, c: pick(cols), a: Math.random() * 6 }));
   let f = 0;
   (function step() {
@@ -399,7 +393,9 @@ function startPractice(mode) {
   if (mode === 'review') items = buildReview();
   else {
     const p = S.prac;
-    const unit = mode === 'alfabeto' ? 'alf' : p.unit && T.has(p.unit) ? p.unit : S.topics[S.topics.length - 1];
+    // le traduzioni lavorano su tutto ciò che è aperto, con l'accento sull'ultima unità; il resto sull'argomento scelto
+    const latest = S.topics[S.topics.length - 1];
+    const unit = mode === 'alfabeto' ? 'alf' : ['gr_it', 'it_gr', 'nuove'].includes(mode) ? latest : p.unit && T.has(p.unit) ? p.unit : latest;
     items = LS.buildPractice({ T, focus: unit, mix: MIXES[mode] || MIXES[p.type] || MIXES.misto, wide: p.wide, genShare: mode === 'nuove' ? 1 : 0.5, gen: S.settings.gen, avoid: S.recent });
   }
   if (!items.length) { toast(mode === 'review' ? 'Nessun errore da ripassare: ottimo!' : 'Non ci sono ancora esercizi per questa scelta.'); return; }
@@ -911,7 +907,7 @@ function finishSession() {
   const newUnit = unlockedNew && unlockedNew.ui !== FLAT[SES.idx].ui;
   const msg = !passed ? 'Per superare la prova serve il 70% di risposte giuste. Riprova: ormai ci sei.' : newUnit ? `Hai sbloccato l’unità «${unlockedNew.unit.title}»!` : unlockedNew ? `Prossima lezione: «${unlockedNew.lesson.title}».` : acc >= 0.7 ? pick(C.CHEERS) : 'Gli errori sono finiti nel ripasso: rivederli è il modo più rapido per imparare.';
   $('#ovBody').innerHTML = `<div class="done-screen fx-in">${ermes(passed ? 'cheer' : 'think', 150)}<h2 ${perfect || acc >= 0.8 ? 'lang="grc"' : ''}>${esc(title)}</h2>${starRow}<p>${esc(msg)}</p>
-    <div class="stats3"><div class="stat" style="--c:var(--gold)"><small>XP</small><b>+${SES.xp + bonus}</b></div><div class="stat" style="--c:var(--olive)"><small>Precisione</small><b>${Math.round(acc * 100)}%</b></div><div class="stat" style="--c:var(--sea)"><small>Tempo</small><b>${mins}′</b></div></div>
+    <div class="stats3"><div class="stat" style="--c:var(--star)"><small>XP</small><b>+${SES.xp + bonus}</b></div><div class="stat" style="--c:var(--good)"><small>Precisione</small><b>${Math.round(acc * 100)}%</b></div><div class="stat" style="--c:var(--info)"><small>Tempo</small><b>${mins}′</b></div></div>
     <p class="note">${goalDone ? `Obiettivo di oggi raggiunto: ${todayXP()} XP.` : `Oggi ${todayXP()} di ${S.goal} XP.`}</p>
     ${rankUp ? `<div class="card">Nuovo grado: ${gr(rankOf(S.xp).r.name)} — ${esc(rankOf(S.xp).r.tr)}</div>` : ''}
     ${won.map((b) => `<div class="card">${medal(b.id, true)}<b lang="grc">${esc(b.name)}</b><div class="note">${esc(b.desc)}</div></div>`).join('')}</div>`;
@@ -1077,7 +1073,7 @@ function render() {
   const cur = VIEW.startsWith('topic:') ? 'lib' : VIEW;
   app.innerHTML = `<div class="shell"><nav class="rail" aria-label="Sezioni"><div class="brand">${MARK}<b lang="grc">Ἑρμηνεύς</b></div>${NAV.map(([v, ic, it, g]) => `<button data-act="tab" data-v="${v}" ${cur === v ? 'aria-current="page"' : ''}>${ic}<span>${it}<span class="gr" lang="grc">${g}</span></span></button>`).join('')}</nav>
     <div><main class="main" id="main" tabindex="-1"><header class="topbar"><div class="row"><div class="brand">${MARK}<b lang="grc">Ἑρμηνεύς</b></div>
-      <div class="top-stats"><span class="chip streak ${st ? '' : 'off'}" title="Giorni di fila">${I.flame}${st}<span class="sr"> giorni di fila</span></span><span class="chip xp" title="Punti esperienza">${I.bolt}${S.xp}<span class="sr"> XP</span></span></div></div><div class="meander"></div></header>
+      <div class="top-stats"><span class="chip streak ${st ? '' : 'off'}" title="Giorni di fila">${I.flame}${st}<span class="sr"> giorni di fila</span></span><span class="chip xp" title="Punti esperienza">${I.bolt}${S.xp}<span class="sr"> XP</span></span></div></div></header>
       ${view}</main></div>
     <aside class="side" aria-label="I tuoi progressi">${sidePanel()}</aside></div>
     <nav class="tabs" aria-label="Sezioni">${NAV.map(([v, ic, it]) => `<button data-act="tab" data-v="${v}" ${cur === v ? 'aria-current="page"' : ''}>${ic}<span>${it}</span></button>`).join('')}</nav>`;
@@ -1085,7 +1081,7 @@ function render() {
 }
 function ringSvg(p, label) {
   const r = 27, c = 2 * Math.PI * r, v = Math.max(0, Math.min(1, p));
-  return `<svg class="ring" viewBox="0 0 66 66" role="img" aria-label="${esc(label)}"><circle cx="33" cy="33" r="${r}" fill="none" stroke="var(--paper-2)" stroke-width="8"/><circle cx="33" cy="33" r="${r}" fill="none" stroke="${v >= 1 ? 'var(--olive)' : 'var(--gold)'}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - v)}" transform="rotate(-90 33 33)"/><text x="33" y="38" text-anchor="middle" font-size="15" font-weight="800" fill="var(--ink)">${Math.round(v * 100)}%</text></svg>`;
+  return `<svg class="ring" viewBox="0 0 66 66" role="img" aria-label="${esc(label)}"><circle cx="33" cy="33" r="${r}" fill="none" stroke="var(--paper-2)" stroke-width="8"/><circle cx="33" cy="33" r="${r}" fill="none" stroke="${v >= 1 ? 'var(--good)' : 'var(--star)'}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - v)}" transform="rotate(-90 33 33)"/><text x="33" y="38" text-anchor="middle" font-size="15" font-weight="800" fill="var(--ink)">${Math.round(v * 100)}%</text></svg>`;
 }
 function sententiaOfDay() { const n = daysBetween('2026-01-01', dayKey()); return B.SENTENTIAE[((n % B.SENTENTIAE.length) + B.SENTENTIAE.length) % B.SENTENTIAE.length]; }
 function goalCard() {
@@ -1097,7 +1093,7 @@ function sidePanel() {
   const rk = rankOf(S.xp);
   const max = sententiaOfDay();
   return `${goalCard()}
-    <section class="card"><div style="display:flex;gap:12px;align-items:center">${I.flame.replace('<svg', '<svg style="width:40px;height:40px;flex:none;color:var(--clay)"')}<div><b>${st} ${st === 1 ? 'giorno' : 'giorni'} di fila</b><div class="note">${S.shields ? `${S.shields} ${S.shields === 1 ? 'scudo protegge' : 'scudi proteggono'} la serie` : 'Ogni 7 giorni guadagni uno scudo'}</div></div></div></section>
+    <section class="card"><div style="display:flex;gap:12px;align-items:center">${I.flame.replace('<svg', '<svg style="width:40px;height:40px;flex:none;color:var(--pri)"')}<div><b>${st} ${st === 1 ? 'giorno' : 'giorni'} di fila</b><div class="note">${S.shields ? `${S.shields} ${S.shields === 1 ? 'scudo protegge' : 'scudi proteggono'} la serie` : 'Ogni 7 giorni guadagni uno scudo'}</div></div></div></section>
     <section class="card"><b>Grado: ${gr(rk.r.name)}</b><div class="note">${esc(rk.r.tr)}${rk.next ? ` · ${rk.next.xp - S.xp} XP a ${esc(rk.next.tr)}` : ''}</div><div class="bar" style="margin-top:10px"><i style="width:${rk.next ? Math.round(((S.xp - rk.r.xp) / (rk.next.xp - rk.r.xp)) * 100) : 100}%"></i></div></section>
     <section class="card maxim"><p class="section-title" style="margin-top:0">Massima del giorno</p><p class="gr" lang="grc" style="font-size:1.3rem;margin:0">${esc(max[0])}</p><p style="margin:4px 0">${esc(max[1])}</p><p class="note">${esc(max[2])} · ${esc(max[3])}</p><button class="tool" data-act="speakText" data-w="${esc(max[0])}">${I.sound}Ascolta</button></section>`;
 }
@@ -1115,6 +1111,7 @@ function viewPath() {
   const greet = S.name ? `Χαῖρε, ${esc(S.name)}! ` : 'Χαῖρε! ';
   let h = `<div class="hello">${ermes('happy', 72)}<div class="bubble">${greet}${cf.lesson.test ? `Pronto per la prova dell’unità «${esc(cf.unit.title)}»?` : `Oggi: <b>${esc(cf.lesson.title)}</b> (${esc(cf.unit.title)}).`}</div></div>`;
   h += `<div class="only-narrow">${goalCard()}</div>`;
+  if (canTranslate(sel())) h += `<section class="tr-quick"><p class="section-title">Allenati a tradurre</p>${translateCards(sel(), true)}</section>`;
   const offs = [0, 46, 70, 46, 0, -46, -70, -46];
   UNITS.forEach((u, ui) => {
     const grp = TOPIC[u.id] && GROUPS[TOPIC[u.id].group] ? GROUPS[TOPIC[u.id].group].color : 'g-nom';
@@ -1141,7 +1138,7 @@ function viewPath() {
     });
     h += roadSvg(pts, walked) + nodes + `</div></section>`;
   });
-  h += `<div class="trophy">${I.laurel.replace('<svg', '<svg style="width:40px;height:40px;color:var(--gold)"')}Alla fine del percorso: la corona d’alloro dell’ἑρμηνεύς.</div>`;
+  h += `<div class="trophy">${I.laurel.replace('<svg', '<svg style="width:40px;height:40px;color:var(--star)"')}Alla fine del percorso: la corona d’alloro dell’ἑρμηνεύς.</div>`;
   return h;
 }
 function nodePop(idx) {
@@ -1157,24 +1154,32 @@ function nodePop(idx) {
     ${st && l.teach ? `<button class="btn small ghost" style="margin-top:8px" data-act="startLessonTeach" data-i="${idx}">Rivedi la spiegazione</button>` : ''}</div>`;
 }
 function scrollToCurrent() { const n = $('.node.current'); if (n) n.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }
+// le traduzioni si aprono con la prima declinazione (sintagmi senza verbo); dal presente con frasi complete
+const canTranslate = (T) => T.has('d1');
+function translateCards(T, compact) {
+  const on = canTranslate(T);
+  const card = (m, title, sub, sample) => `<button class="tr-card${compact ? ' compact' : ''}" data-act="practice" data-m="${m}" ${on ? '' : 'disabled'}><span class="tr-sample" lang="${m === 'gr_it' ? 'grc' : 'it'}">${sample}</span><b>${title}</b><span class="tr-sub">${sub}</span></button>`;
+  return `<div class="tr-row">${card('gr_it', 'Versione', 'dal greco all’italiano', 'Ἡ τῆς θεᾶς τιμή')}${card('it_gr', 'Retroversione', 'dall’italiano al greco', 'L’onore della dea')}</div>${on ? '' : '<p class="note">Le traduzioni si aprono con l’unità «Prima declinazione»: prima servono l’alfabeto e l’articolo.</p>'}`;
+}
 function viewGym() {
   const T = sel();
   const p = S.prac;
   const units = UNITS.filter((u) => T.has(u.id));
   const unit = p.unit && T.has(p.unit) ? p.unit : units[units.length - 1].id;
   const nErr = S.mistakes.length;
-  return `<h1 style="margin-top:18px">Palestra</h1>${say('Qui ti alleni come vuoi tu. Scegli un argomento: le frasi useranno solo le parole che hai già incontrato.', 'happy', 64)}
-    <p class="section-title">Argomento</p><div class="chips" role="group" aria-label="Argomento">${units.map((u) => `<button data-act="pracUnit" data-u="${u.id}" aria-pressed="${u.id === unit}">${esc(u.title)}</button>`).join('')}</div>
-    <p class="section-title">Esercizi</p><div class="chips" role="group" aria-label="Tipo di esercizi">${[['misto', 'Misti'], ['frasi', 'Frasi'], ['forme', 'Forme'], ['parole', 'Parole']].map(([v, l]) => `<button data-act="pracType" data-v="${v}" aria-pressed="${p.type === v}">${l}</button>`).join('')}</div>
+  return `<h1 style="margin-top:18px">Palestra</h1>
+    <p class="section-title">Traduzione</p>${translateCards(T)}
+    <div class="grid2" style="margin-top:12px">
+      <button class="mode" data-act="practice" data-m="nuove" ${S.settings.gen && canTranslate(T) ? '' : 'disabled'}>${I.spark}<b>Frasi nuove</b><span>create sul momento, ogni volta diverse</span></button>
+      <button class="mode" data-act="methodSheet">${I.method}<b>Il metodo</b><span>sette passi per tradurre una frase</span></button></div>
+    <p class="section-title">Allenamento su misura</p>${say('Scegli un argomento e il tipo di esercizi: le frasi useranno solo le parole che hai già incontrato.', 'happy', 56)}
+    <div class="chips" role="group" aria-label="Argomento">${units.map((u) => `<button data-act="pracUnit" data-u="${u.id}" aria-pressed="${u.id === unit}">${esc(u.title)}</button>`).join('')}</div>
+    <div class="chips" role="group" aria-label="Tipo di esercizi" style="margin-top:14px">${[['misto', 'Misti'], ['frasi', 'Solo frasi'], ['forme', 'Forme'], ['parole', 'Parole']].map(([v, l]) => `<button data-act="pracType" data-v="${v}" aria-pressed="${p.type === v}">${l}</button>`).join('')}</div>
     <div class="setting" style="border:0"><div><b>Solo parole già incontrate</b><span>Disattiva per usare tutto il lessico degli argomenti aperti (più difficile)</span></div><label class="switch"><input type="checkbox" data-set="pracNarrow" ${p.wide ? '' : 'checked'} aria-label="Solo parole già incontrate"><i></i></label></div>
-    <button class="btn block" style="margin:10px 0 6px" data-act="practice" data-m="${p.type}">${I.play}Allenati</button>
-    <p class="section-title">Altri allenamenti</p><div class="grid2">
+    <button class="btn block" style="margin:6px 0" data-act="practice" data-m="${p.type}">${I.play}Allenati</button>
+    <p class="section-title">Altro</p><div class="grid2">
       <button class="mode" data-act="practice" data-m="review" ${nErr ? '' : 'disabled'}>${I.retry}<b>Ripasso errori</b><span>${nErr ? nErr + ' da rivedere' : 'nessun errore'}</span></button>
-      <button class="mode" data-act="practice" data-m="gr_it" ${T.has('pres') ? '' : 'disabled'}>${I.translate}<b>Versione</b><span>dal greco all’italiano</span></button>
-      <button class="mode" data-act="practice" data-m="it_gr" ${T.has('pres') ? '' : 'disabled'}>${I.pen}<b>Retroversione</b><span>dall’italiano al greco</span></button>
-      <button class="mode" data-act="practice" data-m="nuove" ${S.settings.gen && T.has('art') ? '' : 'disabled'}>${I.spark}<b>Frasi nuove</b><span>create sul momento</span></button>
-      <button class="mode" data-act="practice" data-m="alfabeto">${I.alpha}<b>Alfabeto</b><span>lettere, letture, accenti</span></button>
-      <button class="mode" data-act="methodSheet">${I.method}<b>Il metodo</b><span>sette passi per tradurre</span></button></div>`;
+      <button class="mode" data-act="practice" data-m="alfabeto">${I.alpha}<b>Alfabeto</b><span>lettere, letture, accenti</span></button></div>`;
 }
 function viewLibrary() {
   let h = `<h1 style="margin-top:18px">Teoria</h1><p class="muted">I ventidue argomenti del biennio. Le tabelle sono generate dal motore morfologico: niente errori di stampa.</p>
@@ -1247,12 +1252,12 @@ function weekSvg() {
   return `<svg class="week" viewBox="0 0 280 120" role="img" aria-label="XP degli ultimi sette giorni: ${vals.join(', ')}">${days.map((d, i) => {
     const hgt = Math.round((vals[i] / max) * 80);
     const [y, m, dd] = d.split('-').map(Number);
-    return `<rect x="${i * 40 + 8}" y="${92 - hgt}" width="24" height="${Math.max(2, hgt)}" rx="6" fill="${vals[i] >= S.goal ? 'var(--olive)' : 'var(--gold)'}"/><text x="${i * 40 + 20}" y="110" text-anchor="middle" font-size="11" fill="var(--muted)">${names[new Date(y, m - 1, dd).getDay()]}</text>`;
+    return `<rect x="${i * 40 + 8}" y="${92 - hgt}" width="24" height="${Math.max(2, hgt)}" rx="6" fill="${vals[i] >= S.goal ? 'var(--good)' : 'var(--star)'}"/><text x="${i * 40 + 20}" y="110" text-anchor="middle" font-size="11" fill="var(--muted)">${names[new Date(y, m - 1, dd).getDay()]}</text>`;
   }).join('')}<line x1="0" x2="280" y1="${gy}" y2="${gy}" stroke="var(--muted)" stroke-dasharray="4 4" stroke-width="1"/></svg>`;
 }
 function medal(id, on) {
   const b = BADGES.find((x) => x.id === id);
-  return `<svg class="medal" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="${on ? 'var(--gold-soft)' : 'var(--paper-2)'}" stroke="${on ? 'var(--gold)' : 'var(--line)'}" stroke-width="3"/><path d="M12 30c3-1 5-4 6-8M36 30c-3-1-5-4-6-8M14 22c2 0 3-1 4-3M34 22c-2 0-3-1-4-3" stroke="${on ? 'var(--gold-d)' : 'var(--muted)'}" stroke-width="2" fill="none" stroke-linecap="round"/><text x="24" y="29" text-anchor="middle" font-family="GFS Didot, serif" font-size="15" fill="${on ? 'var(--ink)' : 'var(--muted)'}">${esc(b ? b.name[0] : '?')}</text></svg>`;
+  return `<svg class="medal" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="${on ? 'var(--star-soft)' : 'var(--paper-2)'}" stroke="${on ? 'var(--star)' : 'var(--line)'}" stroke-width="3"/><path d="M12 30c3-1 5-4 6-8M36 30c-3-1-5-4-6-8M14 22c2 0 3-1 4-3M34 22c-2 0-3-1-4-3" stroke="${on ? 'var(--star-d)' : 'var(--muted)'}" stroke-width="2" fill="none" stroke-linecap="round"/><text x="24" y="29" text-anchor="middle" font-family="GFS Didot, serif" font-size="15" fill="${on ? 'var(--ink)' : 'var(--muted)'}">${esc(b ? b.name[0] : '?')}</text></svg>`;
 }
 function viewMe() {
   const rk = rankOf(S.xp);
@@ -1261,7 +1266,7 @@ function viewMe() {
   const sw = (k, label, sub) => `<div class="setting"><div><b>${label}</b><span>${sub}</span></div><label class="switch"><input type="checkbox" data-set="${k}" ${set[k] === true || set[k] === 'lenient' || set[k] === 'keys' ? 'checked' : ''} aria-label="${esc(label)}"><i></i></label></div>`;
   const cu = FLAT[currentIdx()];
   return `<div style="display:flex;align-items:center;gap:14px;margin-top:18px">${ermes('happy', 72)}<div><h1 style="margin:0">${S.name ? esc(S.name) : 'Il tuo profilo'}</h1><div class="note">${gr(rk.r.name)} · ${esc(rk.r.tr)}</div></div></div>
-    <div class="stats3"><div class="stat" style="--c:var(--clay)"><small>Serie</small><b>${effectiveStreak()}</b></div><div class="stat" style="--c:var(--gold)"><small>XP</small><b>${S.xp}</b></div><div class="stat" style="--c:var(--olive)"><small>Precisione</small><b>${acc}%</b></div></div>
+    <div class="stats3"><div class="stat" style="--c:var(--pri)"><small>Serie</small><b>${effectiveStreak()}</b></div><div class="stat" style="--c:var(--star)"><small>XP</small><b>${S.xp}</b></div><div class="stat" style="--c:var(--good)"><small>Precisione</small><b>${acc}%</b></div></div>
     <section class="card"><h2>Ultimi sette giorni</h2>${weekSvg()}<p class="note">Lezioni completate: ${S.stats.lessons} · unità superate: ${doneUnits()} su ${UNITS.length} · scudi: ${S.shields}</p></section>
     <p class="section-title">Insegne</p><section class="card"><div class="badges">${BADGES.map((b) => `<div class="badge ${S.badges[b.id] ? '' : 'off'}">${medal(b.id, !!S.badges[b.id])}<b lang="grc">${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join('')}</div></section>
     <p class="section-title">Impostazioni</p><section class="card">
@@ -1278,14 +1283,14 @@ function viewMe() {
     <div class="setting"><div><b>Nome</b><span>Facoltativo, resta sul dispositivo</span></div><button class="btn small ghost" data-act="rename">Cambia</button></div>
     <div class="setting"><div><b>Copia di sicurezza</b><span>Salva o ripristina i progressi in un file</span></div><div class="seg"><button data-act="export">Salva</button><button data-act="import">Ripristina</button></div></div>
     <div class="setting"><div><b>Azzera i progressi</b><span>Cancella tutto da questo dispositivo</span></div><button class="btn small err" data-act="reset">Azzera</button></div></section>
-    <section class="card"><h2>Informazioni</h2><p class="note">Hermeneus funziona tutto sul tuo dispositivo: nessun account, nessuna raccolta di dati, nessuna intelligenza artificiale. Pronuncia erasmiana della scuola italiana, letta dalla sintesi vocale del dispositivo. Caratteri: Gentium Plus, GFS Didot, Brygada 1918, Rubik (licenza SIL OFL 1.1). Dizionario online facoltativo: Wikizionario (CC BY-SA).</p>
+    <section class="card"><h2>Informazioni</h2><p class="note">Hermeneus funziona tutto sul tuo dispositivo: nessun account, nessuna raccolta di dati, nessuna intelligenza artificiale. Pronuncia erasmiana della scuola italiana, letta dalla sintesi vocale del dispositivo. Caratteri: Gentium Plus, GFS Didot, Rubik (licenza SIL OFL 1.1). Dizionario online facoltativo: Wikizionario (CC BY-SA).</p>
     <p class="note">${E.LEX.length} lemmi · ${UNITS.length} unità · ${FLAT.length} lezioni · ${BANK.length} frasi verificate · ${B.SENTENTIAE.length} massime.</p></section>`;
 }
 
 /* ---------- Benvenuto e posizione nel percorso ---------- */
 let onb = null;
 function placementList(selId, actName) {
-  return `<button class="choice" data-act="${actName}" data-u="" aria-pressed="${selId === ''}"><span class="num" style="--gc:var(--olive)">0</span><span><b>Comincio da zero</b><span>Partiamo dall’alfabeto</span></span></button>
+  return `<button class="choice" data-act="${actName}" data-u="" aria-pressed="${selId === ''}"><span class="num" style="--gc:var(--good)">0</span><span><b>Comincio da zero</b><span>Partiamo dall’alfabeto</span></span></button>
     ${UNITS.slice(0, -1).map((u, i) => `<button class="choice ${TOPIC[u.id] ? GROUPS[TOPIC[u.id].group].color : ''}" data-act="${actName}" data-u="${u.id}" aria-pressed="${selId === u.id}"><span class="num">${i + 1}</span><span><b>Ho studiato fino a: ${esc(u.title)}</b><span>${i ? `Si aprono le unità 1–${i + 1}` : 'Si apre l’unità 1'}; si riparte da «${esc(UNITS[i + 1].title)}»</span></span></button>`).join('')}`;
 }
 function drawOnb() {

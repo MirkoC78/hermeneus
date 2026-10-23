@@ -1,8 +1,8 @@
-# Genera le icone di Hermeneus: quadrato in vernice nera, meandro color argilla, lettera Ἑ in GFS Didot.
+# Genera le icone di Hermeneus: quadrato viola, meandro lilla, lettera Ἑ bianca in GFS Didot.
 import sys, os
 from PIL import Image, ImageDraw, ImageFont
 font_path, out = sys.argv[1], sys.argv[2]
-GLAZE, CLAY, IVORY = (35, 25, 21), (226, 128, 75), (246, 231, 216)
+GLAZE, CLAY, IVORY = (124, 92, 255), (214, 204, 255), (255, 255, 255)
 def icon(size, maskable=False):
     S = 4 * size  # supercampionamento per bordi morbidi
     im = Image.new('RGBA', (S, S), (0, 0, 0, 0))
