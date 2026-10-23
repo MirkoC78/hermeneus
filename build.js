@@ -32,7 +32,8 @@ const FONTS = [
   ['Gentium Plus', 400, 'gentium-plus-greek-400-normal', R_GREEK], ['Gentium Plus', 400, 'gentium-plus-greek-ext-400-normal', R_GREEK_EXT], ['Gentium Plus', 400, 'gentium-plus-latin-400-normal', R_LATIN],
   ['Gentium Plus', 700, 'gentium-plus-greek-700-normal', R_GREEK], ['Gentium Plus', 700, 'gentium-plus-greek-ext-700-normal', R_GREEK_EXT], ['Gentium Plus', 700, 'gentium-plus-latin-700-normal', R_LATIN],
   ['GFS Didot', 400, 'gfs-didot-greek-400-normal', R_GREEK], ['GFS Didot', 400, 'gfs-didot-greek-ext-400-normal', R_GREEK_EXT], ['GFS Didot', 400, 'gfs-didot-latin-400-normal', R_LATIN],
-  ['Fira Sans', 400, 'fira-sans-latin-400-normal', R_LATIN], ['Fira Sans', 500, 'fira-sans-latin-500-normal', R_LATIN], ['Fira Sans', 600, 'fira-sans-latin-600-normal', R_LATIN], ['Fira Sans', 700, 'fira-sans-latin-700-normal', R_LATIN],
+  ['Rubik', 400, 'rubik-latin-400-normal', R_LATIN], ['Rubik', 500, 'rubik-latin-500-normal', R_LATIN], ['Rubik', 600, 'rubik-latin-600-normal', R_LATIN], ['Rubik', 700, 'rubik-latin-700-normal', R_LATIN],
+  ['Brygada 1918', 600, 'brygada-1918-latin-600-normal', R_LATIN], ['Brygada 1918', 700, 'brygada-1918-latin-700-normal', R_LATIN],
 ];
 const fontCSS = FONTS.map(([fam, w, file, range]) => {
   const b64 = fs.readFileSync(path.join(ROOT, 'fonts', file + '.woff2')).toString('base64');
@@ -57,7 +58,7 @@ function page(site) {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Hermeneus</title>
 <meta name="description" content="Palestra di traduzione dal greco antico e verso il greco per il biennio del liceo classico: frasi sugli argomenti studiati, teoria, lessico, tutto offline e senza account.">
-<meta name="theme-color" content="#F3EEE2">
+<meta name="theme-color" content="#231915">
 <meta name="color-scheme" content="light dark">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -93,7 +94,7 @@ fs.copyFileSync(path.join(ROOT, 'fonts', 'LICENZE-CARATTERI.txt'), path.join(SIT
 fs.writeFileSync(path.join(SITE, 'manifest.webmanifest'), JSON.stringify({
   name: 'Hermeneus — Ἑρμηνεύς', short_name: 'Hermeneus', description: 'Palestra di traduzione greco-italiano per il biennio del liceo classico.',
   lang: 'it', dir: 'ltr', start_url: './', scope: './', display: 'standalone', orientation: 'portrait',
-  background_color: '#F3EEE2', theme_color: '#22508F', categories: ['education'],
+  background_color: '#FAF5EF', theme_color: '#231915', categories: ['education'],
   icons: [
     { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
     { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
@@ -120,7 +121,7 @@ Contenuto
   manifest.webmanifest   dati per l'installazione su telefono
   sw.js                  service worker: rende l'app utilizzabile senza rete
   icons/                 icone dell'app
-  LICENZE-CARATTERI.txt  licenze SIL OFL 1.1 di Gentium Plus, GFS Didot, Fira Sans
+  LICENZE-CARATTERI.txt  licenze SIL OFL 1.1 di Gentium Plus, GFS Didot, Brygada 1918, Rubik
 
 Pubblicazione
   Carica l'intera cartella su un hosting statico con HTTPS (per esempio GitHub Pages,

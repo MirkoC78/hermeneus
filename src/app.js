@@ -84,35 +84,60 @@ const I = {
   accent: svg('<path d="M10 4 7 9"/><path d="M5 20c2-6 4-9 7-9s5 3 7 9"/>'),
   match: svg('<path d="M4 7h6M4 12h6M4 17h6M14 7h6M14 12h6M14 17h6"/>'),
 };
-const MARK = '<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" fill="#2457A3"/><path d="M12 50h40M12 50v-7h7v-4h-4v-4h9v8h8v-8h9v4h-4v4h7v7" fill="none" stroke="#E3B04B" stroke-width="3" stroke-linejoin="round"/><text x="32" y="33" text-anchor="middle" font-family="GFS Didot, Gentium Plus, serif" font-size="30" fill="#FDF6E3">Ἑ</text></svg>';
+const MARK = '<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="1" y="1" width="62" height="62" rx="17" fill="#231915"/><rect x="5" y="5" width="54" height="54" rx="14" fill="none" stroke="#E2804B" stroke-width="1.6" stroke-dasharray="2.5 2.5"/><path d="M13 51h38M13 51v-6h6v-4h-3v-3h8v7h6v-7h8v3h-3v4h6v6" fill="none" stroke="#E2804B" stroke-width="2.6" stroke-linejoin="round"/><text x="32" y="35" text-anchor="middle" font-family="GFS Didot, Gentium Plus, serif" font-size="31" fill="#F6E7D8">Ἑ</text></svg>';
 
 /* ---------- Ermes, la guida ---------- */
-// umori: idle, happy, think, sad, cheer
+// dipinto «a figure rosse»: la figura resta del colore dell'argilla, i dettagli sono in vernice nera,
+// le ali in bianco sovraddipinto. Umori: idle, happy, think, sad, cheer
+let ermesN = 0;
 function ermes(mood = 'idle', size = 96) {
+  const G = '#231915', K = '#D9733B', W = '#F6EDE2';
+  const ln = (d, w = 1.6) => `<path d="${d}" fill="none" stroke="${G}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
   const eyes = {
-    idle: '<ellipse cx="41" cy="60" rx="3.6" ry="4.6" fill="#1A2333"/><ellipse cx="59" cy="60" rx="3.6" ry="4.6" fill="#1A2333"/><circle cx="42.2" cy="58.4" r="1.2" fill="#fff"/><circle cx="60.2" cy="58.4" r="1.2" fill="#fff"/>',
-    happy: '<path d="M36.5 61c1.6-3 7-3 8.6 0M54.9 61c1.6-3 7-3 8.6 0" stroke="#1A2333" stroke-width="3" fill="none" stroke-linecap="round"/>',
-    cheer: '<path d="M36.5 61c1.6-3.6 7-3.6 8.6 0M54.9 61c1.6-3.6 7-3.6 8.6 0" stroke="#1A2333" stroke-width="3" fill="none" stroke-linecap="round"/>',
-    think: '<ellipse cx="41" cy="61" rx="3.4" ry="4.2" fill="#1A2333"/><ellipse cx="59" cy="61" rx="3.4" ry="4.2" fill="#1A2333"/><path d="M54 53.5l9-2" stroke="#1A2333" stroke-width="2.6" stroke-linecap="round"/>',
-    sad: '<ellipse cx="41" cy="62" rx="3.4" ry="4.2" fill="#1A2333"/><ellipse cx="59" cy="62" rx="3.4" ry="4.2" fill="#1A2333"/><path d="M36 54.5l8 2.4M64 54.5l-8 2.4" stroke="#1A2333" stroke-width="2.6" stroke-linecap="round"/>',
+    idle: `<ellipse cx="43" cy="56" rx="2.5" ry="3.1" fill="${G}"/><ellipse cx="57" cy="56" rx="2.5" ry="3.1" fill="${G}"/><circle cx="43.8" cy="55" r=".9" fill="${W}"/><circle cx="57.8" cy="55" r=".9" fill="${W}"/>${ln('M38.6 50.2q4.4-2.4 8.8 0M52.6 50.2q4.4-2.4 8.8 0', 1.4)}`,
+    happy: `${ln('M39.6 57.2q3.4-4.2 6.8 0M53.6 57.2q3.4-4.2 6.8 0', 2)}${ln('M38.6 49.4q4.4-2.6 8.8 0M52.6 49.4q4.4-2.6 8.8 0', 1.4)}`,
+    cheer: `${ln('M39.2 57q3.8-5 7.6 0M53.2 57q3.8-5 7.6 0', 2.1)}${ln('M38.4 48.2q4.6-3.2 9.2 0M52.4 48.2q4.6-3.2 9.2 0', 1.4)}`,
+    think: `<ellipse cx="44.4" cy="54.6" rx="2.3" ry="2.9" fill="${G}"/><ellipse cx="58.4" cy="54.6" rx="2.3" ry="2.9" fill="${G}"/>${ln('M38.8 50.6q4.2-1.4 8.6.2M52.6 47.8q4.6-2.8 9 .4', 1.4)}`,
+    sad: `<ellipse cx="43" cy="57.4" rx="2.3" ry="2.8" fill="${G}"/><ellipse cx="57" cy="57.4" rx="2.3" ry="2.8" fill="${G}"/>${ln('M39 52.4l8-2.6M61 52.4l-8-2.6', 1.5)}`,
   }[mood] || '';
   const mouth = {
-    idle: '<path d="M44 72c3.5 3 8.5 3 12 0" stroke="#7A3B2A" stroke-width="3" fill="none" stroke-linecap="round"/>',
-    happy: '<path d="M42 70c4 6 12 6 16 0z" fill="#7A3B2A"/><path d="M45 73.5c3 1.8 7 1.8 10 0" stroke="#E98B7C" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
-    cheer: '<path d="M40 69c5 9 15 9 20 0z" fill="#7A3B2A"/><path d="M44 74.5c3.5 2.2 8.5 2.2 12 0" stroke="#E98B7C" stroke-width="2.6" fill="none" stroke-linecap="round"/>',
-    think: '<path d="M46 74h8" stroke="#7A3B2A" stroke-width="3" stroke-linecap="round"/>',
-    sad: '<path d="M44 76c3.5-3 8.5-3 12 0" stroke="#7A3B2A" stroke-width="3" fill="none" stroke-linecap="round"/>',
+    idle: ln('M45 66.6q5 3.4 10 0', 1.8),
+    happy: `<path d="M43.6 65.2q6.4 7.4 12.8 0z" fill="${G}"/>`,
+    cheer: `<path d="M42.2 64.2q7.8 10.4 15.6 0z" fill="${G}"/><path d="M45.6 68.4q4.4 2.8 8.8 0" fill="none" stroke="#B5482A" stroke-width="1.6" stroke-linecap="round"/>`,
+    think: ln('M46.4 67.6l7.4-.8', 1.8),
+    sad: ln('M45 69q5-3.6 10 0', 1.8),
   }[mood] || '';
+  const id = 'ermes' + (++ermesN);
   const cls = mood === 'cheer' ? 'cheer' : 'bob';
+  const wing = 'M37 33.6C29.6 27.6 21.4 26.4 14 29.2c6 .9 10.2 2.4 13.2 4.4-5.8-.2-9.6 1.2-12.4 3.6 6.8-.9 13-.8 21.6.3z';
+  const feathers = 'M30 31.2l-6.6-1.2M31.4 34.4l-8.6-.6';
+  const tilt = 'rotate(-22 36 35) translate(36 35) scale(1.25) translate(-36 -35)';
   return `<svg class="ermes ${cls}" width="${size}" height="${size}" viewBox="0 0 100 100" role="img" aria-label="Ermes, la tua guida">
-    <path d="M28 98c2-14 11-21 22-21s20 7 22 21z" fill="#2457A3"/><path d="M50 77l-9 6 9 6 9-6z" fill="#E3B04B"/>
-    <circle cx="50" cy="62" r="23" fill="#F2CBA6"/><circle cx="34" cy="68" r="4" fill="#F0A58F" opacity=".55"/><circle cx="66" cy="68" r="4" fill="#F0A58F" opacity=".55"/>
-    ${eyes}${mouth}
-    <g class="wing l"><path d="M22 40c-9-3-15-1-18 4 6 0 10 1 13 3-5 0-8 2-10 5 6-1 11-1 15 1z" fill="#FFFFFF" stroke="#C9D6EA" stroke-width="1.5"/></g>
-    <g class="wing r"><path d="M78 40c9-3 15-1 18 4-6 0-10 1-13 3 5 0 8 2 10 5-6-1-11-1-15 1z" fill="#FFFFFF" stroke="#C9D6EA" stroke-width="1.5"/></g>
-    <ellipse cx="50" cy="44" rx="33" ry="7.5" fill="#173F7C"/><path d="M30 44c0-13 9-21 20-21s20 8 20 21z" fill="#2457A3"/><path d="M31 41h38" stroke="#E3B04B" stroke-width="3.4"/>
+    <defs><clipPath id="${id}"><circle cx="50" cy="50" r="46"/></clipPath></defs>
+    <circle cx="50" cy="50" r="49" fill="${G}"/>
+    <g clip-path="url(#${id})"><g class="figure">
+      <path d="M12 104C14 84 29 76 50 76s36 8 38 28z" fill="${K}"/>
+      ${ln('M33 83c4 7 6 13 6 21M64 80c-2 8-4 15-4 24M50 76l-5 9')}
+      <circle cx="64.5" cy="80.5" r="2.4" fill="${W}" stroke="${G}" stroke-width=".8"/>
+      <path d="M42.5 66h15v12h-15z" fill="${K}"/>
+      <ellipse cx="32.6" cy="57.6" rx="2.6" ry="3.6" fill="${K}" stroke="${G}" stroke-width="1"/><ellipse cx="67.4" cy="57.6" rx="2.6" ry="3.6" fill="${K}" stroke="${G}" stroke-width="1"/>
+      <ellipse cx="50" cy="56.5" rx="17.4" ry="19" fill="${K}"/>
+      ${ln('M33.8 45.6a2.4 2.4 0 1 0 2.6 3.4M33.4 50.6a2.4 2.4 0 1 0 2.4 3.4M66.2 45.6a2.4 2.4 0 1 1-2.6 3.4M66.6 50.6a2.4 2.4 0 1 1-2.4 3.4', 1.3)}
+      <circle cx="38.6" cy="63" r="3.4" fill="#C2552A" opacity=".55"/><circle cx="61.4" cy="63" r="3.4" fill="#C2552A" opacity=".55"/>
+      ${ln('M50.4 55.6q-2.2 5 .2 6.6', 1.3)}
+      ${eyes}${mouth}
+      <g transform="${tilt}"><g class="wing l"><path d="${wing}" fill="${W}" stroke="${G}" stroke-width="1.2"/>${ln(feathers, 1)}</g></g>
+      <g transform="translate(100 0) scale(-1 1)"><g transform="${tilt}"><g class="wing l"><path d="${wing}" fill="${W}" stroke="${G}" stroke-width="1.2"/>${ln(feathers, 1)}</g></g></g>
+      <path d="M35 40c0-12 7-19 15-19s15 7 15 19z" fill="${K}" stroke="${G}" stroke-width="1.6"/>
+      ${ln('M35.6 35.4c9.6 2.6 19.2 2.6 28.8 0', 2.6)}
+      <ellipse cx="50" cy="40.6" rx="29" ry="6.2" fill="${K}" stroke="${G}" stroke-width="1.6"/>
+      ${ln('M25 40.8c8 2.6 42 2.6 50 0', 1)}
+    </g></g>
+    <circle cx="50" cy="50" r="46" fill="none" stroke="${K}" stroke-width="2.2"/>
+    <circle cx="50" cy="50" r="48.6" fill="none" stroke="${K}" stroke-width=".9" stroke-dasharray="2.4 2.2"/>
   </svg>`;
 }
+
 const say = (text, mood = 'happy', size = 76) => `<div class="say">${ermes(mood, size)}<div class="bubble">${text}</div></div>`;
 
 /* ---------- Stato ---------- */
@@ -144,7 +169,7 @@ function applyTheme() {
   if (S.settings.theme === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', S.settings.theme);
   const dark = S.settings.theme === 'dark' || (S.settings.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   const m = $('meta[name="theme-color"]');
-  if (m) m.content = dark ? '#0E1420' : '#F4EFE3';
+  if (m) m.content = dark ? '#0D0907' : '#231915';
 }
 
 /* ---------- Percorso: sblocchi ---------- */
@@ -300,7 +325,7 @@ function confetti() {
   setTimeout(() => c.remove(), 4000);
   const dpr = window.devicePixelRatio || 1; c.width = innerWidth * dpr; c.height = innerHeight * dpr;
   const ctx = c.getContext('2d'); ctx.scale(dpr, dpr);
-  const cols = ['#2457A3', '#E3B04B', '#A6482C', '#24776A', '#7FA8EC', '#3CA35E'];
+  const cols = ['#C4561F', '#DDA126', '#4E7A1E', '#17698A', '#231915', '#E2804B'];
   const P = Array.from({ length: 110 }, () => ({ x: innerWidth / 2 + (Math.random() - 0.5) * 160, y: innerHeight * 0.35, vx: (Math.random() - 0.5) * 10, vy: -Math.random() * 10 - 3, r: Math.random() * 6 + 3, c: pick(cols), a: Math.random() * 6 }));
   let f = 0;
   (function step() {
@@ -446,7 +471,10 @@ function renderTeach(it) {
   const f = SES.kind === 'lesson' ? FLAT[SES.idx] : null;
   let h = `<div class="teach">`;
   if (c.intro && f) h += `<p class="kind">${I.road}<span>Unità ${f.ui + 1}</span></p><h1 style="margin-top:6px">${esc(f.unit.title)}</h1>`;
-  if (c.say) h += say(esc(c.say), c.intro ? 'cheer' : 'happy', c.intro ? 110 : 80);
+  // una scheda fatta solo di parole di Ermes occupa la scena: lui grande, il fumetto sotto
+  const solo = c.say && !c.p && !c.ex && !teachTable(c);
+  if (solo) h += `<div class="teach-hero">${ermes(c.intro ? 'cheer' : 'happy', c.intro ? 150 : 128)}<div class="bubble big">${esc(c.say)}</div></div>`;
+  else if (c.say) h += say(esc(c.say), 'happy', 80);
   if (c.p) h += `<div class="card" style="font-size:1.05rem">${grSpans(c.p)}</div>`;
   h += teachTable(c);
   if (c.ex) h += `<div class="ex"><span class="gr" lang="grc">${esc(c.ex[0])}</span><span class="muted">${esc(c.ex[1])}</span><div class="tools" style="margin:8px 0 0"><button class="tool" data-act="speakText" data-w="${esc(c.ex[0])}">${I.sound}Ascolta</button></div></div>`;
@@ -832,14 +860,14 @@ function showFeedback(res, gained) {
   } else {
     body += `<h3>${res.near ? 'Quasi! La soluzione:' : 'Risposta giusta:'}</h3><p><span class="sol${res.greek ? ' gr' : ''}" ${res.greek ? 'lang="grc"' : ''}>${esc(res.sol)}</span></p>`;
     if (res.note) body += `<p class="note">${esc(res.note)}</p>`;
-    if (!res.near) body += `<p class="note">${esc(pick(C.COMFORT))}</p>`;
+    if (!res.near && !(it.s && it.s.tip)) body += `<p class="note">${esc(pick(C.COMFORT))}</p>`;
   }
   if (res.accent && res.accent.length) body += `<p class="accent-warn">Segni diacritici: ${res.accent.slice(0, 3).map((a) => `${gr(a.got)} → ${gr(a.want)}`).join(', ')}${S.settings.accents === 'lenient' ? ' (non conta come errore)' : ''}</p>`;
   if (it.s && it.s.tip && !res.ok) body += `<p class="note">${esc(it.s.tip)}</p>`;
   const extra = [];
   if (topic && TOPIC[topic] && !res.ok) extra.push(`<button class="tool" data-act="theory" data-t="${topic}">${I.book}Teoria</button>`);
   if (it.s) extra.push(`<button class="tool" data-act="analysis">${I.lens}Analisi</button>`, `<button class="tool" data-act="speakSent">${I.sound}Ascolta</button>`);
-  $('#ovFoot').innerHTML = `<div class="foot-split"><div class="fb ${res.ok ? 'ok' : 'err'}" role="status" aria-live="polite">${ermes(res.ok ? 'happy' : 'sad', 56)}<div class="fb-txt">${body}${extra.length ? `<div class="fb-extra">${extra.join('')}</div>` : ''}</div></div>
+  $('#ovFoot').innerHTML = `<div class="foot-split"><div class="fb-wrap"><div class="fb ${res.ok ? 'ok' : 'err'}" role="status" aria-live="polite">${ermes(res.ok ? 'happy' : 'sad', 48)}<div class="fb-txt">${body}</div></div>${extra.length ? `<div class="fb-extra">${extra.join('')}</div>` : ''}</div>
     <button class="btn ${res.ok ? 'ok' : 'err'}" data-act="next" id="nextBtn">Continua</button></div>`;
   setTimeout(() => { const n = $('#nextBtn'); if (n) n.focus({ preventScroll: true }); }, 60);
   if (!res.ok && topic && TOPIC[topic] && !SES.shownTheory[topic] && SES.ko >= 3 && SES.kind === 'practice') {
@@ -883,7 +911,7 @@ function finishSession() {
   const newUnit = unlockedNew && unlockedNew.ui !== FLAT[SES.idx].ui;
   const msg = !passed ? 'Per superare la prova serve il 70% di risposte giuste. Riprova: ormai ci sei.' : newUnit ? `Hai sbloccato l’unità «${unlockedNew.unit.title}»!` : unlockedNew ? `Prossima lezione: «${unlockedNew.lesson.title}».` : acc >= 0.7 ? pick(C.CHEERS) : 'Gli errori sono finiti nel ripasso: rivederli è il modo più rapido per imparare.';
   $('#ovBody').innerHTML = `<div class="done-screen fx-in">${ermes(passed ? 'cheer' : 'think', 150)}<h2 ${perfect || acc >= 0.8 ? 'lang="grc"' : ''}>${esc(title)}</h2>${starRow}<p>${esc(msg)}</p>
-    <div class="stats3"><div class="stat" style="--c:var(--ochre-l)"><small>XP</small><b>+${SES.xp + bonus}</b></div><div class="stat" style="--c:var(--ok-l)"><small>Precisione</small><b>${Math.round(acc * 100)}%</b></div><div class="stat" style="--c:var(--lapis)"><small>Tempo</small><b>${mins}′</b></div></div>
+    <div class="stats3"><div class="stat" style="--c:var(--gold)"><small>XP</small><b>+${SES.xp + bonus}</b></div><div class="stat" style="--c:var(--olive)"><small>Precisione</small><b>${Math.round(acc * 100)}%</b></div><div class="stat" style="--c:var(--sea)"><small>Tempo</small><b>${mins}′</b></div></div>
     <p class="note">${goalDone ? `Obiettivo di oggi raggiunto: ${todayXP()} XP.` : `Oggi ${todayXP()} di ${S.goal} XP.`}</p>
     ${rankUp ? `<div class="card">Nuovo grado: ${gr(rankOf(S.xp).r.name)} — ${esc(rankOf(S.xp).r.tr)}</div>` : ''}
     ${won.map((b) => `<div class="card">${medal(b.id, true)}<b lang="grc">${esc(b.name)}</b><div class="note">${esc(b.desc)}</div></div>`).join('')}</div>`;
@@ -1057,7 +1085,7 @@ function render() {
 }
 function ringSvg(p, label) {
   const r = 27, c = 2 * Math.PI * r, v = Math.max(0, Math.min(1, p));
-  return `<svg class="ring" viewBox="0 0 66 66" role="img" aria-label="${esc(label)}"><circle cx="33" cy="33" r="${r}" fill="none" stroke="var(--bg2)" stroke-width="8"/><circle cx="33" cy="33" r="${r}" fill="none" stroke="${v >= 1 ? 'var(--ok-l)' : 'var(--ochre-l)'}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - v)}" transform="rotate(-90 33 33)"/><text x="33" y="38" text-anchor="middle" font-size="15" font-weight="800" fill="var(--ink)">${Math.round(v * 100)}%</text></svg>`;
+  return `<svg class="ring" viewBox="0 0 66 66" role="img" aria-label="${esc(label)}"><circle cx="33" cy="33" r="${r}" fill="none" stroke="var(--paper-2)" stroke-width="8"/><circle cx="33" cy="33" r="${r}" fill="none" stroke="${v >= 1 ? 'var(--olive)' : 'var(--gold)'}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - v)}" transform="rotate(-90 33 33)"/><text x="33" y="38" text-anchor="middle" font-size="15" font-weight="800" fill="var(--ink)">${Math.round(v * 100)}%</text></svg>`;
 }
 function sententiaOfDay() { const n = daysBetween('2026-01-01', dayKey()); return B.SENTENTIAE[((n % B.SENTENTIAE.length) + B.SENTENTIAE.length) % B.SENTENTIAE.length]; }
 function goalCard() {
@@ -1069,9 +1097,16 @@ function sidePanel() {
   const rk = rankOf(S.xp);
   const max = sententiaOfDay();
   return `${goalCard()}
-    <section class="card"><div style="display:flex;gap:12px;align-items:center">${I.flame.replace('<svg', '<svg style="width:40px;height:40px;flex:none;color:#E06A1F"')}<div><b>${st} ${st === 1 ? 'giorno' : 'giorni'} di fila</b><div class="note">${S.shields ? `${S.shields} ${S.shields === 1 ? 'scudo protegge' : 'scudi proteggono'} la serie` : 'Ogni 7 giorni guadagni uno scudo'}</div></div></div></section>
+    <section class="card"><div style="display:flex;gap:12px;align-items:center">${I.flame.replace('<svg', '<svg style="width:40px;height:40px;flex:none;color:var(--clay)"')}<div><b>${st} ${st === 1 ? 'giorno' : 'giorni'} di fila</b><div class="note">${S.shields ? `${S.shields} ${S.shields === 1 ? 'scudo protegge' : 'scudi proteggono'} la serie` : 'Ogni 7 giorni guadagni uno scudo'}</div></div></div></section>
     <section class="card"><b>Grado: ${gr(rk.r.name)}</b><div class="note">${esc(rk.r.tr)}${rk.next ? ` · ${rk.next.xp - S.xp} XP a ${esc(rk.next.tr)}` : ''}</div><div class="bar" style="margin-top:10px"><i style="width:${rk.next ? Math.round(((S.xp - rk.r.xp) / (rk.next.xp - rk.r.xp)) * 100) : 100}%"></i></div></section>
     <section class="card maxim"><p class="section-title" style="margin-top:0">Massima del giorno</p><p class="gr" lang="grc" style="font-size:1.3rem;margin:0">${esc(max[0])}</p><p style="margin:4px 0">${esc(max[1])}</p><p class="note">${esc(max[2])} · ${esc(max[3])}</p><button class="tool" data-act="speakText" data-w="${esc(max[0])}">${I.sound}Ascolta</button></section>`;
+}
+// numerali greci con la keraia: 1 → αʹ, 22 → κβʹ
+const grNum = (n) => ['', 'ι', 'κ', 'λ'][Math.floor(n / 10)] + ['', 'α', 'β', 'γ', 'δ', 'ε', 'ϛ', 'ζ', 'η', 'θ'][n % 10] + 'ʹ';
+// strada punteggiata fra i tondi: curve morbide da un centro all'altro (larghezza 240, centro 120)
+function roadSvg(pts, walked) {
+  const d = (p) => p.map((q, i) => (i ? `C${p[i - 1][0]} ${p[i - 1][1] + 50} ${q[0]} ${q[1] - 50} ${q[0]} ${q[1]}` : `M${q[0]} ${q[1]}`)).join(' ');
+  return `<svg class="road" aria-hidden="true" viewBox="0 0 240 ${pts[pts.length - 1][1] + 40}" preserveAspectRatio="xMidYMin meet" style="height:${pts[pts.length - 1][1] + 40}px"><path d="${d(pts)}"/>${walked > 0 ? `<path class="walked" d="${d(pts.slice(0, walked + 1))}"/>` : ''}</svg>`;
 }
 const LESSON_ICON = (l) => (l.test ? I.trophy : l.teach ? I.book : I.dumbbell);
 function viewPath() {
@@ -1085,7 +1120,9 @@ function viewPath() {
     const grp = TOPIC[u.id] && GROUPS[TOPIC[u.id].group] ? GROUPS[TOPIC[u.id].group].color : 'g-nom';
     const fi = firstLessonIdx(ui);
     const locked = !isUnlocked(fi);
-    h += `<section class="unit ${grp}${locked ? ' locked' : ''}" id="unit-${u.id}" aria-label="Unità ${ui + 1}: ${esc(u.title)}"><div class="unit-banner"><div class="t"><small>Unità ${ui + 1}</small><b>${esc(u.title)}</b></div><button class="btn small" data-act="topic" data-t="${u.id}" aria-label="Guida: ${esc(u.title)}">${I.book}<span>Guida</span></button></div><div class="path">`;
+    h += `<section class="unit ${grp}${locked ? ' locked' : ''}" id="unit-${u.id}" aria-label="Unità ${ui + 1}: ${esc(u.title)}"><div class="unit-banner"><span class="unum" aria-hidden="true" lang="grc">${grNum(ui + 1)}</span><div class="t"><small>Unità ${ui + 1}</small><b>${esc(u.title)}</b></div><button class="btn small" data-act="topic" data-t="${u.id}" aria-label="Guida: ${esc(u.title)}">${I.book}<span>Guida</span></button></div><div class="path">`;
+    let y = 22, nodes = '', walked = 0;
+    const pts = [];
     u.lessons.forEach((l, li) => {
       const idx = fi + li;
       const st = S.course.stars[l.id] || 0;
@@ -1093,14 +1130,18 @@ function viewPath() {
       const isCur = idx === cur;
       const cls = ['node', l.test ? 'test' : '', !unlocked ? 'locked' : st ? 'done' : '', isCur ? 'current' : ''].filter(Boolean).join(' ');
       const icon = !unlocked ? I.lock : st && !isCur ? (l.test ? I.trophy : I.check2) : LESSON_ICON(l);
-      h += `<div class="node-wrap" style="transform:translateX(${offs[li % offs.length]}px)">${isCur ? '<span class="start-tag" aria-hidden="true">INIZIA</span>' : ''}
+      const pad = isCur ? 30 : 0;
+      pts.push([120 + offs[li % offs.length], y + pad + (isCur || l.test ? 40 : 36)]);
+      y += 112 + pad;
+      if (unlocked) walked = li;
+      nodes += `<div class="node-wrap" style="transform:translateX(${offs[li % offs.length]}px)${pad ? ';height:' + (112 + pad) + 'px;padding-top:' + pad + 'px' : ''}">${isCur ? '<span class="start-tag" aria-hidden="true" style="top:-8px">INIZIA</span>' : ''}
         <button class="${cls}" data-act="node" data-i="${idx}" aria-label="${esc(l.title)}${!unlocked ? ' (bloccata)' : st ? ` (${st} ${st === 1 ? 'stella' : 'stelle'})` : ''}" aria-expanded="${openNode === idx}">${icon}</button>
         <div class="node-stars" aria-hidden="true">${l.test ? '' : [1, 2, 3].map((n) => I.star.replace('<svg', `<svg class="${n <= st ? 'on' : ''}"`)).join('')}</div>
         ${openNode === idx ? nodePop(idx) : ''}</div>`;
     });
-    h += `</div></section>`;
+    h += roadSvg(pts, walked) + nodes + `</div></section>`;
   });
-  h += `<div class="trophy">${I.laurel.replace('<svg', '<svg style="width:28px;height:28px;color:var(--ochre-l)"')}Alla fine del percorso: la corona d’alloro dell’ἑρμηνεύς.</div>`;
+  h += `<div class="trophy">${I.laurel.replace('<svg', '<svg style="width:40px;height:40px;color:var(--gold)"')}Alla fine del percorso: la corona d’alloro dell’ἑρμηνεύς.</div>`;
   return h;
 }
 function nodePop(idx) {
@@ -1206,12 +1247,12 @@ function weekSvg() {
   return `<svg class="week" viewBox="0 0 280 120" role="img" aria-label="XP degli ultimi sette giorni: ${vals.join(', ')}">${days.map((d, i) => {
     const hgt = Math.round((vals[i] / max) * 80);
     const [y, m, dd] = d.split('-').map(Number);
-    return `<rect x="${i * 40 + 8}" y="${92 - hgt}" width="24" height="${Math.max(2, hgt)}" rx="6" fill="${vals[i] >= S.goal ? 'var(--ok-l)' : 'var(--ochre-l)'}"/><text x="${i * 40 + 20}" y="110" text-anchor="middle" font-size="11" fill="var(--muted)">${names[new Date(y, m - 1, dd).getDay()]}</text>`;
+    return `<rect x="${i * 40 + 8}" y="${92 - hgt}" width="24" height="${Math.max(2, hgt)}" rx="6" fill="${vals[i] >= S.goal ? 'var(--olive)' : 'var(--gold)'}"/><text x="${i * 40 + 20}" y="110" text-anchor="middle" font-size="11" fill="var(--muted)">${names[new Date(y, m - 1, dd).getDay()]}</text>`;
   }).join('')}<line x1="0" x2="280" y1="${gy}" y2="${gy}" stroke="var(--muted)" stroke-dasharray="4 4" stroke-width="1"/></svg>`;
 }
 function medal(id, on) {
   const b = BADGES.find((x) => x.id === id);
-  return `<svg class="medal" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="${on ? 'var(--ochre-bg)' : 'var(--bg2)'}" stroke="${on ? 'var(--ochre-l)' : 'var(--line)'}" stroke-width="3"/><path d="M12 30c3-1 5-4 6-8M36 30c-3-1-5-4-6-8M14 22c2 0 3-1 4-3M34 22c-2 0-3-1-4-3" stroke="${on ? 'var(--ochre)' : 'var(--muted)'}" stroke-width="2" fill="none" stroke-linecap="round"/><text x="24" y="29" text-anchor="middle" font-family="GFS Didot, serif" font-size="15" fill="${on ? 'var(--ink)' : 'var(--muted)'}">${esc(b ? b.name[0] : '?')}</text></svg>`;
+  return `<svg class="medal" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="${on ? 'var(--gold-soft)' : 'var(--paper-2)'}" stroke="${on ? 'var(--gold)' : 'var(--line)'}" stroke-width="3"/><path d="M12 30c3-1 5-4 6-8M36 30c-3-1-5-4-6-8M14 22c2 0 3-1 4-3M34 22c-2 0-3-1-4-3" stroke="${on ? 'var(--gold-d)' : 'var(--muted)'}" stroke-width="2" fill="none" stroke-linecap="round"/><text x="24" y="29" text-anchor="middle" font-family="GFS Didot, serif" font-size="15" fill="${on ? 'var(--ink)' : 'var(--muted)'}">${esc(b ? b.name[0] : '?')}</text></svg>`;
 }
 function viewMe() {
   const rk = rankOf(S.xp);
@@ -1220,7 +1261,7 @@ function viewMe() {
   const sw = (k, label, sub) => `<div class="setting"><div><b>${label}</b><span>${sub}</span></div><label class="switch"><input type="checkbox" data-set="${k}" ${set[k] === true || set[k] === 'lenient' || set[k] === 'keys' ? 'checked' : ''} aria-label="${esc(label)}"><i></i></label></div>`;
   const cu = FLAT[currentIdx()];
   return `<div style="display:flex;align-items:center;gap:14px;margin-top:18px">${ermes('happy', 72)}<div><h1 style="margin:0">${S.name ? esc(S.name) : 'Il tuo profilo'}</h1><div class="note">${gr(rk.r.name)} · ${esc(rk.r.tr)}</div></div></div>
-    <div class="stats3"><div class="stat" style="--c:#E06A1F"><small>Serie</small><b>${effectiveStreak()}</b></div><div class="stat" style="--c:var(--ochre-l)"><small>XP</small><b>${S.xp}</b></div><div class="stat" style="--c:var(--ok-l)"><small>Precisione</small><b>${acc}%</b></div></div>
+    <div class="stats3"><div class="stat" style="--c:var(--clay)"><small>Serie</small><b>${effectiveStreak()}</b></div><div class="stat" style="--c:var(--gold)"><small>XP</small><b>${S.xp}</b></div><div class="stat" style="--c:var(--olive)"><small>Precisione</small><b>${acc}%</b></div></div>
     <section class="card"><h2>Ultimi sette giorni</h2>${weekSvg()}<p class="note">Lezioni completate: ${S.stats.lessons} · unità superate: ${doneUnits()} su ${UNITS.length} · scudi: ${S.shields}</p></section>
     <p class="section-title">Insegne</p><section class="card"><div class="badges">${BADGES.map((b) => `<div class="badge ${S.badges[b.id] ? '' : 'off'}">${medal(b.id, !!S.badges[b.id])}<b lang="grc">${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join('')}</div></section>
     <p class="section-title">Impostazioni</p><section class="card">
@@ -1237,14 +1278,14 @@ function viewMe() {
     <div class="setting"><div><b>Nome</b><span>Facoltativo, resta sul dispositivo</span></div><button class="btn small ghost" data-act="rename">Cambia</button></div>
     <div class="setting"><div><b>Copia di sicurezza</b><span>Salva o ripristina i progressi in un file</span></div><div class="seg"><button data-act="export">Salva</button><button data-act="import">Ripristina</button></div></div>
     <div class="setting"><div><b>Azzera i progressi</b><span>Cancella tutto da questo dispositivo</span></div><button class="btn small err" data-act="reset">Azzera</button></div></section>
-    <section class="card"><h2>Informazioni</h2><p class="note">Hermeneus funziona tutto sul tuo dispositivo: nessun account, nessuna raccolta di dati, nessuna intelligenza artificiale. Pronuncia erasmiana della scuola italiana, letta dalla sintesi vocale del dispositivo. Caratteri: Gentium Plus, GFS Didot, Fira Sans (licenza SIL OFL 1.1). Dizionario online facoltativo: Wikizionario (CC BY-SA).</p>
+    <section class="card"><h2>Informazioni</h2><p class="note">Hermeneus funziona tutto sul tuo dispositivo: nessun account, nessuna raccolta di dati, nessuna intelligenza artificiale. Pronuncia erasmiana della scuola italiana, letta dalla sintesi vocale del dispositivo. Caratteri: Gentium Plus, GFS Didot, Brygada 1918, Rubik (licenza SIL OFL 1.1). Dizionario online facoltativo: Wikizionario (CC BY-SA).</p>
     <p class="note">${E.LEX.length} lemmi · ${UNITS.length} unità · ${FLAT.length} lezioni · ${BANK.length} frasi verificate · ${B.SENTENTIAE.length} massime.</p></section>`;
 }
 
 /* ---------- Benvenuto e posizione nel percorso ---------- */
 let onb = null;
 function placementList(selId, actName) {
-  return `<button class="choice" data-act="${actName}" data-u="" aria-pressed="${selId === ''}"><span class="num" style="--gc:var(--ok-l)">0</span><span><b>Comincio da zero</b><span>Partiamo dall’alfabeto</span></span></button>
+  return `<button class="choice" data-act="${actName}" data-u="" aria-pressed="${selId === ''}"><span class="num" style="--gc:var(--olive)">0</span><span><b>Comincio da zero</b><span>Partiamo dall’alfabeto</span></span></button>
     ${UNITS.slice(0, -1).map((u, i) => `<button class="choice ${TOPIC[u.id] ? GROUPS[TOPIC[u.id].group].color : ''}" data-act="${actName}" data-u="${u.id}" aria-pressed="${selId === u.id}"><span class="num">${i + 1}</span><span><b>Ho studiato fino a: ${esc(u.title)}</b><span>${i ? `Si aprono le unità 1–${i + 1}` : 'Si apre l’unità 1'}; si riparte da «${esc(UNITS[i + 1].title)}»</span></span></button>`).join('')}`;
 }
 function drawOnb() {
@@ -1425,6 +1466,6 @@ function boot() {
   if (SITE && 'serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 // per la verifica automatica nel browser
-window.HermApp = { S: () => S, cur: () => SES && SES.cur, startLesson, startPractice, FLAT };
+window.HermApp = { S: () => S, cur: () => SES && SES.cur, startLesson, startPractice, FLAT, ermes };
 boot();
 })();
