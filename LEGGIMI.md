@@ -1,7 +1,13 @@
 # Hermeneus (Ἑρμηνεύς)
 
-Palestra di traduzione greco ↔ italiano per il biennio del liceo classico. Gemella di Verto per architettura,
-con contenuti e identità visiva propri. Tutto gira sul dispositivo: nessun account, nessuna IA, nessun dato inviato.
+Corso guidato e palestra di traduzione greco ↔ italiano per il biennio del liceo classico. Gemella di Verto per
+architettura, con contenuti e identità visiva propri. Tutto gira sul dispositivo: nessun account, nessuna IA, nessun dato inviato.
+
+Dalla versione 2 lo studente segue un **percorso**: 22 unità (una per argomento), 91 lezioni brevi con spiegazioni
+di Ermes, domande di controllo dopo ogni tabella e una prova a fine unità (70% per passare). Ogni lezione ha un
+perimetro preciso: argomenti fino a quell'unità, solo il vocabolario già incontrato, al massimo una parola nuova
+per frase (segnalata), nessuna nelle prove. La **palestra** permette di scegliere argomento, tipo di esercizi e se
+usare solo le parole già incontrate.
 
 ## Consegne
 
@@ -28,8 +34,9 @@ node test/run-all.js     # tutti i test
 | `src/bank.js` | 221 frasi verificate, metodo di costruzione, 20 massime, gradi |
 | `src/semantic.js`, `src/generator.js` | lessico semantico e generatore offline con traduzione italiana |
 | `src/italian.js` | morfologia italiana (ripresa da Verto) |
-| `src/app.js`, `src/app.css` | interfaccia |
-
+| `src/course.js` | il percorso: unità, lezioni, perimetri (lemmi, forme ammesse, tempi), schede di spiegazione |
+| `src/lessons.js` | motore delle lezioni: costruisce gli esercizi dentro il perimetro di ogni lezione e la pratica libera |
+| `src/app.js`, `src/app.css` | interfaccia: percorso, lezioni con Ermes, palestra, teoria, lessico, profilo |
 ## Ordine del programma
 
 L'elenco richiesto, con tre ritocchi: imperativo presente nei punti 4 e 8, imperativo aoristo al 16;

@@ -313,7 +313,7 @@
     const vocab = o.wide ? null : vocabForTopics(T);
     const focus = o.focus || [...T].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0];
     const unit = UNIT_BY_ID[focus];
-    const sc = { T, vocab, focus, lemmas: null, keys: null, genShare: 0.5, maxNew: o.wide ? 3 : 1 };
+    const sc = { T, vocab, focus, lemmas: null, keys: null, genShare: o.genShare ?? 0.5, maxNew: o.wide ? 3 : 1, gen: o.gen !== false };
     const mix = o.mix || ['frase', 'analizza', 'frase', 'abbina', 'frase', 'scrivi', 'frase', 'completa', 'frase', 'analizza'];
     const used = new Set(o.avoid || []);
     const items = [];
