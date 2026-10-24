@@ -15,6 +15,11 @@ usare solo le parole già incontrate.
 - `dist/sito/`: pacchetto da pubblicare su un hosting statico HTTPS (index.html, manifest, service worker, icone, licenze).
 - `campione-frasi.md`: 50 frasi generate a campione, con traduzioni accettate.
 
+## Grafica
+
+- `docs/sistema-design.md`: scale di spazi, testo, raggi, altezze e componenti. Ogni misura di `src/app.css` viene da lì.
+- `docs/critica-design.md` e `docs/accessibilita.md`: revisioni fatte con il plugin Design (critica e WCAG 2.1 AA).
+
 ## Comandi
 
 ```

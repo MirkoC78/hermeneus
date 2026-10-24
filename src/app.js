@@ -83,6 +83,7 @@ const I = {
   share: svg('<path d="M12 15V4M8 7.5 12 4l4 3.5"/><path d="M6 11v8h12v-8"/>'),
   plus: svg('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/>'),
   accent: svg('<path d="M10 4 7 9"/><path d="M5 20c2-6 4-9 7-9s5 3 7 9"/>'),
+  clock: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
   match: svg('<path d="M4 7h6M4 12h6M4 17h6M14 7h6M14 12h6M14 17h6"/>'),
 };
 const MARK = '<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="1" y="1" width="62" height="62" rx="18" fill="#7C5CFF"/><text x="33" y="45" text-anchor="middle" font-family="GFS Didot, Gentium Plus, serif" font-size="36" fill="#FFFFFF">Ἑ</text></svg>';
@@ -113,7 +114,7 @@ function ermes(mood = 'idle', size = 96) {
   const wing = 'M34 39C26 31 16 25 5 23c6 4.6 9.4 7.6 11.4 10.6C10.4 32.6 6.6 33.8 3.6 36.2c7.2 1.4 12.6 2.2 16.6 3-5 1.2-8.6 3.4-10.6 6.2 8-.8 16.4-2.8 24.4-2.8z';
   const feathers = 'M27 32.6l-9.6-3.6M27.4 37.4l-11-1.4M27.6 41.4l-9.4 1.6';
   const sandal = (x) => `<path d="M${x - 6} 114.6h12c0-2.6-2.4-4-6-4s-6 1.4-6 4z" fill="${HAIR}" ${st(1.6)}/><path d="M${x - 5} 109c-3.4-1.6-6.4-1.6-8.4 0 2 .8 3.4 1.6 4 2.6-1.8 0-3 .6-3.8 1.6 2.8.4 5.4.2 8.2-.6z" fill="${W}" ${st(1.2)}/>`;
-  return `<svg class="ermes ${cls}" width="${size}" height="${size}" viewBox="0 0 120 120" role="img" aria-label="Ermes, la tua guida">
+  return `<svg class="ermes ${cls}" width="${size}" height="${size}" viewBox="${size <= 64 ? '20 10 80 80' : '0 0 120 120'}" role="img" aria-label="Ermes, la tua guida">
     <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD866"/><stop offset="1" stop-color="${GOLD}"/></linearGradient></defs>
     <ellipse cx="60" cy="116.4" rx="24" ry="3.2" fill="${O}" opacity=".12"/>
     <g class="figure">
@@ -455,9 +456,9 @@ function renderItem() {
   if (!it) return finishSession();
   setProgress(); setCombo();
   SES.cur = { it, answered: false, chosen: [], picked: null, inputMode: S.settings.input === 'keys' || (levelOf() && levelOf().typed) ? 'keys' : 'tiles' };
-  const [ico, label] = KIND[it.type] || [I.book, ''];
-  let html = it.type === 'teach' ? '' : `<div class="kind">${ico}<span>${it.quiz ? 'Verifica veloce' : label}</span>${it.review ? ' <span class="tag">ripasso</span>' : ''}${it.requeued ? ' <span class="tag">riproviamo</span>' : ''}${it.s && it.s.src === 'gen' ? ' <span class="tag">frase nuova</span>' : ''}</div>`;
-  html += ({
+  const tags = [it.quiz && 'Verifica veloce', it.review && 'Ripasso', it.requeued && 'Riproviamo', it.s && it.s.src === 'gen' && 'Frase nuova'].filter(Boolean);
+  SES.cur.tagsHtml = tags.length ? `<div class="ex-tags">${tags.map((t) => `<span class="tag pri">${t}</span>`).join('')}</div>` : '';
+  const html = ({
     teach: renderTeach, gr_it: renderGrIt, it_gr: renderItGr, analizza: renderAnalizza, scrivi: renderScrivi, completa: renderCompleta,
     lessico: renderLessico, alfabeto: renderAlfabeto, abbina: renderAbbina, accorda: renderAccorda, lettera: renderLettera, accento: renderAccento,
   }[it.type] || (() => ''))(it);
@@ -470,13 +471,16 @@ function renderItem() {
   const t = $('#typed'); if (t && !matchMedia('(pointer: coarse)').matches) t.focus({ preventScroll: true });
   $('.ov-inner').scrollTop = 0;
 }
+// intestazione dell'esercizio: contrassegni, consegna ed eventuale lemma sotto
+function exHead(title, lemma) {
+  return `<div class="ex-head">${SES.cur.tagsHtml || ''}<h2 class="prompt">${title}${lemma ? `<span class="lemma" lang="grc">${esc(lemma)}</span>` : ''}</h2></div>`;
+}
 function renderFoot() {
   const it = SES.cur.it;
-  if (it.type === 'teach') { $('#ovFoot').innerHTML = `<div class="foot-row"><button class="btn block" data-act="next" id="nextBtn">Continua</button></div>`; setTimeout(() => { const n = $('#nextBtn'); if (n) n.focus({ preventScroll: true }); }, 60); return; }
-  if (it.type === 'abbina') { $('#ovFoot').innerHTML = `<p class="note" style="text-align:center;margin:8px 0">Tocca una parola greca e poi il suo significato.</p>`; return; }
-  $('#ovFoot').innerHTML = `<div class="foot-row"><button class="btn block" data-act="check" id="checkBtn" ${CHOICE.includes(it.type) ? 'disabled' : ''}>Controlla</button></div>`;
+  if (it.type === 'teach') { $('#ovFoot').innerHTML = `<button class="btn big block" data-act="next" id="nextBtn">Continua</button>`; setTimeout(() => { const n = $('#nextBtn'); if (n) n.focus({ preventScroll: true }); }, 60); return; }
+  if (it.type === 'abbina') { $('#ovFoot').innerHTML = `<p class="foot-hint">Tocca una parola greca, poi il suo significato.</p>`; return; }
+  $('#ovFoot').innerHTML = `<button class="btn big block" data-act="check" id="checkBtn" ${CHOICE.includes(it.type) ? 'disabled' : ''}>Controlla</button>`;
 }
-
 /* ---------- Rese degli esercizi ---------- */
 const grSpans = (h) => h.replace(/class="gr"/g, 'class="gr" lang="grc"').replace(/class="gr x"/g, 'class="gr x" lang="grc"');
 function teachTable(card) {
@@ -493,14 +497,14 @@ function renderTeach(it) {
   const c = it.card;
   const f = SES.kind === 'lesson' ? FLAT[SES.idx] : null;
   let h = `<div class="teach">`;
-  if (c.intro && f) h += `<p class="kind">${I.road}<span>Unità ${f.ui + 1}</span></p><h1 style="margin-top:6px">${esc(f.unit.title)}</h1>`;
+  if (c.intro && f) h += `<div class="ex-head"><p class="eyebrow">Unità ${f.ui + 1}</p><h1>${esc(f.unit.title)}</h1></div>`;
   // una scheda fatta solo di parole di Ermes occupa la scena: lui grande, il fumetto sotto
   const solo = c.say && !c.p && !c.ex && !teachTable(c);
-  if (solo) h += `<div class="teach-hero">${ermes(c.intro ? 'cheer' : 'happy', c.intro ? 150 : 128)}<div class="bubble big">${esc(c.say)}</div></div>`;
-  else if (c.say) h += say(esc(c.say), 'happy', 80);
-  if (c.p) h += `<div class="card" style="font-size:1.05rem">${grSpans(c.p)}</div>`;
+  if (solo) h += `<div class="teach-hero">${ermes(c.intro ? 'cheer' : 'happy', c.intro ? 150 : 132)}<div class="bubble big">${esc(c.say)}</div></div>`;
+  else if (c.say) h += say(esc(c.say), 'happy', 72);
+  if (c.p) h += `<div class="card lesson-text">${grSpans(c.p)}</div>`;
   h += teachTable(c);
-  if (c.ex) h += `<div class="ex"><span class="gr" lang="grc">${esc(c.ex[0])}</span><span class="muted">${esc(c.ex[1])}</span><div class="tools" style="margin:8px 0 0"><button class="tool" data-act="speakText" data-w="${esc(c.ex[0])}">${I.sound}Ascolta</button></div></div>`;
+  if (c.ex) h += `<div class="ex"><span class="gr" lang="grc">${esc(c.ex[0])}</span><span class="muted">${esc(c.ex[1])}</span><div class="tools"><button class="tool" data-act="speakText" data-w="${esc(c.ex[0])}">${I.sound}Ascolta</button></div></div>`;
   return h + '</div>';
 }
 function greekLine(s, o = {}) {
@@ -519,21 +523,27 @@ function greekLine(s, o = {}) {
     const nw = t.a && fresh.has(t.a.e.lemma);
     h += (h ? ' ' : '') + `<button class="w${verb ? ' vb' : ''}${nw ? ' new' : ''}" data-act="word" data-i="${i}" lang="grc"${nw ? ` aria-label="parola nuova: ${esc(w)}"` : ''}>${esc(w)}</button>`;
   });
-  return `<p class="greek-line" lang="grc">${h}</p>${fresh.size ? '<p class="note"><span class="tag new">nuova</span> La parola evidenziata è nuova: toccala per scoprire che cosa significa.</p>' : ''}`;
+  return `<p class="greek-line" lang="grc">${h}</p>${fresh.size ? '<p class="note"><span class="tag new">Nuova</span> Tocca la parola evidenziata per scoprire che cosa significa.</p>' : ''}`;
+}
+// strumenti della frase: pulsanti rotondi su una riga, con il nome per i lettori di schermo
+const toolBtn = (act, icon, label, extra = '') => `<button class="iconbtn outline" data-act="${act}" aria-label="${label}" title="${label}" ${extra}>${icon}</button>`;
+function inputToggle() {
+  const tiles = SES.cur.inputMode === 'tiles';
+  return toolBtn('toggleInput', tiles ? I.keys : I.tiles, tiles ? 'Rispondi scrivendo' : 'Rispondi con le tessere');
 }
 function toolsRow(it, extra) {
-  return `<div class="tools">${extra}<button class="tool" data-act="hint">${I.bulb}Aiuto</button><button class="tool" data-act="toggleInput">${SES.cur.inputMode === 'tiles' ? I.keys + 'Scrivi' : I.tiles + 'Tessere'}</button></div><div id="aux"></div>`;
+  return `<div class="ex-tools">${extra}${toolBtn('hint', I.bulb, 'Aiuto')}${inputToggle()}</div><div id="aux"></div>`;
 }
 function renderGrIt(it) {
-  return `<p class="prompt">Traduci in italiano</p>${greekLine(it.s, { newWords: it.newWords })}
-    ${toolsRow(it, `<button class="tool" data-act="speak">${I.sound}Ascolta</button><button class="tool" data-act="method" aria-pressed="false">${I.method}Metodo</button>`)}
-    <div id="ansWrap">${answerArea(it)}</div>`;
+  return `${exHead('Traduci in italiano')}${greekLine(it.s, { newWords: it.newWords })}
+    ${toolsRow(it, toolBtn('speak', I.sound, 'Ascolta la frase') + toolBtn('method', I.method, 'Evidenzia i verbi', 'aria-pressed="false"'))}
+    <div id="ansWrap" class="stack-lg">${answerArea(it)}</div>`;
 }
 function renderItGr(it) {
-  const nw = (it.newWords || []).length ? `<p class="note"><span class="tag new">nuova</span> Ti servirà una parola nuova: ${it.newWords.map((l) => { const e = LS.entryOf(l); return gr(e ? e.head || e.lemma : l) + (e ? ' = ' + esc(e.m) : ''); }).join(', ')}.</p>` : '';
-  return `<p class="prompt">Traduci in greco</p>${say(esc(it.s.it[0]), 'idle', 64)}${nw}
+  const nw = (it.newWords || []).length ? `<p class="note"><span class="tag new">Nuova</span> Ti servirà una parola nuova: ${it.newWords.map((l) => { const e = LS.entryOf(l); return gr(e ? e.head || e.lemma : l) + (e ? ' = ' + esc(e.m) : ''); }).join(', ')}.</p>` : '';
+  return `${exHead('Traduci in greco')}${say(esc(it.s.it[0]), 'idle', 64)}${nw}
     ${toolsRow(it, '')}
-    <div id="ansWrap">${answerArea(it)}</div>`;
+    <div id="ansWrap" class="stack-lg">${answerArea(it)}</div>`;
 }
 function answerArea(it) {
   const c = SES.cur;
@@ -591,40 +601,40 @@ function optsHtml(list, label = (x) => esc(x), greek = false, two = false) {
   return `<div class="opts${two ? ' two' : ''}">${list.map((o, k) => `<button class="opt${greek ? ' gr' : ''}" data-act="pick" data-k="${k}" ${greek ? 'lang="grc"' : ''}>${optKey(k)}<span>${label(o)}</span></button>`).join('')}</div>`;
 }
 function renderAnalizza(it) {
-  return `<p class="prompt">Che forma è? <span class="muted" style="font-weight:400;font-size:1rem">(${gr(it.e.head || it.e.lemma)})</span></p><p class="bigform" lang="grc">${esc(it.form)}</p>
-    <div class="tools" style="justify-content:center"><button class="tool" data-act="speakForm">${I.sound}Ascolta</button></div>${optsHtml(it.options)}`;
+  return `${exHead('Che forma è?', it.e.head || it.e.lemma)}<p class="bigform" lang="grc">${esc(it.form)}</p>
+    <div class="centered-tools">${toolBtn('speakForm', I.sound, 'Ascolta la forma')}</div>${optsHtml(it.options)}`;
 }
 function renderScrivi(it) {
-  return `<p class="prompt">Scrivi la forma</p>${say(`${gr(it.e.head || it.e.lemma)}<br><b>${esc(it.desc)}</b>`, 'think', 64)}
+  return `${exHead('Scrivi la forma')}<div class="card stack"><span class="gr lemma-big" lang="grc">${esc(it.e.head || it.e.lemma)}</span><b>${esc(it.desc)}</b></div>
     <label class="sr" for="typed">La forma in greco</label><input id="typed" class="typed gr" lang="grc" inputmode="none" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scrivi in greco…">${keyboardHtml()}`;
 }
 function renderCompleta(it) {
-  return `<p class="prompt">Completa la frase</p>${greekLine(it.s, { blank: it.idx })}<p class="muted">${esc(it.s.it[0])}</p>${optsHtml(it.options, esc, true, true)}`;
+  return `${exHead('Completa la frase')}<div class="stack">${greekLine(it.s, { blank: it.idx })}<p class="muted">${esc(it.s.it[0])}</p></div>${optsHtml(it.options, esc, true, true)}`;
 }
 function renderLessico(it) {
-  if (it.reverse) return `<p class="prompt">Come si dice in greco «${esc(it.e.m.split(/[,;(]/)[0].trim())}»?</p>${optsHtml(it.options, (o) => esc(o.head || o.lemma), true)}`;
-  return `<p class="prompt">Che cosa significa?</p><p class="bigform" lang="grc">${esc(it.e.head || it.e.lemma)}</p>${optsHtml(it.options, (o) => esc(o.m))}`;
+  if (it.reverse) return `${exHead(`Come si dice in greco «${esc(it.e.m.split(/[,;(]/)[0].trim())}»?`)}${optsHtml(it.options, (o) => esc(o.head || o.lemma), true)}`;
+  return `${exHead('Che cosa significa?')}<p class="bigform" lang="grc">${esc(it.e.head || it.e.lemma)}</p>${optsHtml(it.options, (o) => esc(o.m))}`;
 }
 function renderAlfabeto(it) {
-  return `<p class="prompt">Come si trascrive?</p><p class="bigform" lang="grc">${esc(it.word)}</p>
-    <div class="tools" style="justify-content:center"><button class="tool" data-act="speakForm">${I.sound}Ascolta</button></div>${optsHtml(it.options, esc, false, true)}`;
+  return `${exHead('Come si trascrive?')}<p class="bigform" lang="grc">${esc(it.word)}</p>
+    <div class="centered-tools">${toolBtn('speakForm', I.sound, 'Ascolta la parola')}</div>${optsHtml(it.options, esc, false, true)}`;
 }
 function renderLettera(it) {
-  if (it.reverse) return `<p class="prompt">Quale lettera è «${esc(it.prompt)}»?</p>${optsHtml(it.options, esc, true, true)}`;
-  return `<p class="prompt">Come si chiama questa lettera?</p><p class="biglet" lang="grc">${esc(it.prompt)}</p>${optsHtml(it.options, esc, false, true)}`;
+  if (it.reverse) return `${exHead(`Quale lettera è «${esc(it.prompt)}»?`)}${optsHtml(it.options, esc, true, true)}`;
+  return `${exHead('Come si chiama questa lettera?')}<p class="biglet" lang="grc">${esc(it.prompt)}</p>${optsHtml(it.options, esc, false, true)}`;
 }
 function renderAccento(it) {
-  return `<p class="prompt">Com’è accentata questa parola?</p><p class="bigform" lang="grc">${esc(it.word)}</p>${optsHtml(it.options, esc, false, true)}`;
+  return `${exHead('Com’è accentata questa parola?')}<p class="bigform" lang="grc">${esc(it.word)}</p>${optsHtml(it.options, esc, false, true)}`;
 }
 function renderAccorda(it) {
-  const slot = '<span class="slot"> ? </span>';
+  const slot = '<span class="slot"> ? </span>';
   const phrase = it.mode === 'adj' ? `${esc(it.art)} ${slot} ${esc(it.noun.f)}` : `${slot} ${esc(it.noun.f)}`;
-  return `<p class="prompt">${it.mode === 'adj' ? 'Scegli la forma dell’aggettivo che concorda' : 'Scegli l’articolo giusto'}</p><p class="phrase" lang="grc">${phrase}</p><p class="muted" style="text-align:center">${esc(it.noun.e ? it.noun.e.m : '')}</p>${optsHtml(it.options, esc, true, true)}`;
+  return `${exHead(it.mode === 'adj' ? 'Scegli la forma dell’aggettivo che concorda' : 'Scegli l’articolo giusto')}<div class="stack"><p class="phrase" lang="grc">${phrase}</p><p class="subline">${esc(it.noun.e ? it.noun.e.m : '')}</p></div>${optsHtml(it.options, esc, true, true)}`;
 }
 function renderAbbina(it) {
   const c = SES.cur;
   c.left = shuffle(it.pairs.map((p, i) => i)); c.right = shuffle(it.pairs.map((p, i) => i)); c.matched = new Set(); c.mist = 0; c.selL = null; c.selR = null;
-  return `<p class="prompt">Abbina le coppie</p><div class="match"><div class="col">${c.left.map((i) => `<button class="gr" lang="grc" data-act="mL" data-i="${i}">${esc(it.pairs[i].gr)}</button>`).join('')}</div><div class="col">${c.right.map((i) => `<button data-act="mR" data-i="${i}">${esc(it.pairs[i].it)}</button>`).join('')}</div></div>`;
+  return `${exHead('Abbina le coppie')}<div class="match"><div class="col">${c.left.map((i) => `<button class="gr" lang="grc" data-act="mL" data-i="${i}">${esc(it.pairs[i].gr)}</button>`).join('')}</div><div class="col">${c.right.map((i) => `<button data-act="mR" data-i="${i}">${esc(it.pairs[i].it)}</button>`).join('')}</div></div>`;
 }
 function matchStep() {
   const c = SES.cur, it = c.it;
@@ -823,8 +833,8 @@ function markOptions(ok, isRight) {
 function selfGrade(it, ans, sol) {
   const c = SES.cur; c.answered = true;
   $('#typed').readOnly = true;
-  $('#ovFoot').innerHTML = `<div class="fb">${ermes('think', 56)}<div class="fb-txt"><h3>Confronta con la soluzione</h3><p>Soluzione: <span class="sol">${esc(sol)}</span></p>${it.s.it.length > 1 ? `<p class="note">Anche: ${it.s.it.filter((x) => x !== sol).slice(0, 2).map(esc).join(' · ')}</p>` : ''}<p class="note">La tua traduzione è diversa da quelle previste: giudica tu con onestà.</p></div></div>
-    <div class="foot-row"><button class="btn err" data-act="self" data-v="0">Ho sbagliato</button><button class="btn ok" data-act="self" data-v="1">Era corretta</button></div>`;
+  $('#ovFoot').innerHTML = `<div class="fb">${ermes('think', 52)}<div class="fb-txt"><h3>Confronta con la soluzione</h3><p class="sol">${esc(sol)}</p>${it.s.it.length > 1 ? `<p class="note">Anche: ${it.s.it.filter((x) => x !== sol).slice(0, 2).map(esc).join(' · ')}</p>` : ''}<p class="note">La tua traduzione è diversa da quelle previste: giudica tu con onestà.</p></div></div>
+    <div class="btns"><button class="btn err" data-act="self" data-v="0">Ho sbagliato</button><button class="btn ok" data-act="self" data-v="1">Era giusta</button></div>`;
   c.selfData = { ans, sol };
 }
 function finalize(res) {
@@ -879,12 +889,12 @@ function showFeedback(res, gained) {
   $('#ovFootWrap').className = 'ov-foot ' + (res.ok ? 'ok' : 'err');
   let body = '';
   if (res.ok) {
-    body += `<h3>${res.accentOnly ? 'Giusto, ma attento ai segni!' : pick(['Ottimo!', 'Esatto!', 'Bravo!', 'Perfetto!', 'Εὖ γε!'])}</h3>`;
+    body += `<h3>${res.accentOnly ? 'Giusto, ma attento ai segni' : pick(['Ottimo!', 'Esatto!', 'Bravo!', 'Perfetto!', 'Εὖ γε!'])}</h3>`;
     if (gained) body += `<p class="note">+${gained} XP${SES.combo >= 3 ? ' · ' + SES.combo + ' di fila' : ''}</p>`;
     if (res.note) body += `<p class="note">${esc(res.note)}</p>`;
     if (res.others && res.others.length > 1) body += `<p class="note">Può essere anche: ${res.others.filter((o) => o !== it.options[SES.cur.picked]).map(esc).join('; ')}.</p>`;
   } else {
-    body += `<h3>${res.near ? 'Quasi! La soluzione:' : 'Risposta giusta:'}</h3><p><span class="sol${res.greek ? ' gr' : ''}" ${res.greek ? 'lang="grc"' : ''}>${esc(res.sol)}</span></p>`;
+    body += `<h3>${res.near ? 'Quasi!' : 'Soluzione'}</h3><p class="sol${res.greek ? ' gr' : ''}" ${res.greek ? 'lang="grc"' : ''}>${esc(res.sol)}</p>`;
     if (res.note) body += `<p class="note">${esc(res.note)}</p>`;
     if (!res.near && !(it.s && it.s.tip)) body += `<p class="note">${esc(pick(C.COMFORT))}</p>`;
   }
@@ -893,8 +903,8 @@ function showFeedback(res, gained) {
   const extra = [];
   if (topic && TOPIC[topic] && !res.ok) extra.push(`<button class="tool" data-act="theory" data-t="${topic}">${I.book}Teoria</button>`);
   if (it.s) extra.push(`<button class="tool" data-act="analysis">${I.lens}Analisi</button>`, `<button class="tool" data-act="speakSent">${I.sound}Ascolta</button>`);
-  $('#ovFoot').innerHTML = `<div class="foot-split"><div class="fb-wrap"><div class="fb ${res.ok ? 'ok' : 'err'}" role="status" aria-live="polite">${ermes(res.ok ? 'happy' : 'sad', 48)}<div class="fb-txt">${body}</div></div>${extra.length ? `<div class="fb-extra">${extra.join('')}</div>` : ''}</div>
-    <button class="btn ${res.ok ? 'ok' : 'err'}" data-act="next" id="nextBtn">Continua</button></div>`;
+  $('#ovFoot').innerHTML = `<div class="foot-split"><div class="fb-wrap"><div class="fb ${res.ok ? 'ok' : 'err'}" role="status" aria-live="polite">${ermes(res.ok ? 'happy' : 'sad', 52)}<div class="fb-txt">${body}</div></div>${extra.length ? `<div class="fb-extra">${extra.join('')}</div>` : ''}</div>
+    <button class="btn big ${res.ok ? 'ok' : 'err'}" data-act="next" id="nextBtn">Continua</button></div>`;
   setTimeout(() => { const n = $('#nextBtn'); if (n) n.focus({ preventScroll: true }); }, 60);
   if (!res.ok && topic && TOPIC[topic] && !SES.shownTheory[topic] && SES.ko >= 3 && SES.kind === 'practice') {
     SES.shownTheory[topic] = true;
@@ -936,16 +946,17 @@ function finishSession() {
   const title = !passed ? 'Quasi!' : perfect ? 'Ἄνευ ἁμαρτίας!' : acc >= 0.8 ? 'Καλῶς!' : SES.kind === 'lesson' ? 'Lezione completata' : 'Allenamento finito';
   const newUnit = unlockedNew && unlockedNew.ui !== FLAT[SES.idx].ui;
   const msg = !passed ? 'Per superare la prova serve il 70% di risposte giuste. Riprova: ormai ci sei.' : newUnit ? `Hai sbloccato l’unità «${unlockedNew.unit.title}»!` : unlockedNew ? `Prossima lezione: «${unlockedNew.lesson.title}».` : acc >= 0.7 ? pick(C.CHEERS) : 'Gli errori sono finiti nel ripasso: rivederli è il modo più rapido per imparare.';
-  $('#ovBody').innerHTML = `<div class="done-screen fx-in">${ermes(passed ? 'cheer' : 'think', 150)}<h2 ${perfect || acc >= 0.8 ? 'lang="grc"' : ''}>${esc(title)}</h2>${starRow}<p>${esc(msg)}</p>
-    <div class="stats3"><div class="stat" style="--c:var(--star)"><small>XP</small><b>+${SES.xp + bonus}</b></div><div class="stat" style="--c:var(--good)"><small>Precisione</small><b>${Math.round(acc * 100)}%</b></div><div class="stat" style="--c:var(--info)"><small>Tempo</small><b>${mins}′</b></div></div>
+  $('#ovBody').innerHTML = `<div class="done-screen fx-in">${ermes(passed ? 'cheer' : 'think', 140)}<h2 ${perfect || acc >= 0.8 ? 'lang="grc"' : ''}>${esc(title)}</h2>${starRow}<p>${esc(msg)}</p>
+    <div class="stats3"><div class="stat" style="--c:var(--star-d)">${I.bolt}<b>+${SES.xp + bonus}</b><small>XP</small></div><div class="stat" style="--c:var(--good)">${I.check2}<b>${Math.round(acc * 100)}%</b><small>Precisione</small></div><div class="stat" style="--c:var(--info)">${I.clock}<b>${mins}′</b><small>Tempo</small></div></div>
     <p class="note">${goalDone ? `Obiettivo di oggi raggiunto: ${todayXP()} XP.` : `Oggi ${todayXP()} di ${S.goal} XP.`}</p>
-    ${rankUp ? `<div class="card">Nuovo grado: ${gr(rankOf(S.xp).r.name)} — ${esc(rankOf(S.xp).r.tr)}</div>` : ''}
-    ${won.map((b) => `<div class="card">${medal(b.id, true)}<b lang="grc">${esc(b.name)}</b><div class="note">${esc(b.desc)}</div></div>`).join('')}
-    ${SES.kind === 'lesson' && (S.stats.lessons === 1 || (S.stats.lessons >= 3 && Date.now() - (S.backupAt || 0) > 7 * 864e5)) ? `<div class="card save-nudge"><b>Metti al sicuro i tuoi progressi</b><p class="note">Si salvano da soli su questo dispositivo. Con il codice di salvataggio li ritrovi anche su un altro telefono.</p><button class="btn small ghost" data-act="saveCode">${I.keys}Mostra il codice</button></div>` : ''}</div>`;
+    ${rankUp ? `<div class="card"><p class="eyebrow">Nuovo grado</p><b><span class="gr" lang="grc">${esc(rankOf(S.xp).r.name)}</span> · ${esc(rankOf(S.xp).r.tr)}</b></div>` : ''}
+    ${won.map((b) => `<div class="card">${medal(b.id, true)}<b lang="grc">${esc(b.name)}</b><span class="note">${esc(b.desc)}</span></div>`).join('')}
+    ${SES.kind === 'lesson' && (S.stats.lessons === 1 || (S.stats.lessons >= 3 && Date.now() - (S.backupAt || 0) > 7 * 864e5)) ? `<div class="card save-nudge"><b>Metti al sicuro i tuoi progressi</b><p class="note">Si salvano da soli su questo dispositivo. Con il codice di salvataggio li ritrovi anche su un altro telefono.</p><button class="btn small ghost" data-act="saveCode">Mostra il codice</button></div>` : ''}</div>`;
   $('#ovFootWrap').className = 'ov-foot';
-  const again = !passed && SES.kind === 'lesson' ? `<button class="btn ghost" data-act="retry">Riprova</button>` : S.mistakes.length && SES.kind === 'practice' && SES.mode !== 'review' ? '<button class="btn ghost" data-act="startReview">Ripassa gli errori</button>' : '';
-  $('#ovFoot').innerHTML = `<div class="foot-row">${again}<button class="btn ${passed ? 'ok' : ''}" data-act="endSession">Continua</button></div>`;
+  const again = !passed && SES.kind === 'lesson' ? `<button class="btn big ghost" data-act="retry">Riprova</button>` : S.mistakes.length && SES.kind === 'practice' && SES.mode !== 'review' ? '<button class="btn big ghost" data-act="startReview">Ripassa gli errori</button>' : '';
+  $('#ovFoot').innerHTML = `<div class="btns">${again}<button class="btn big ${passed ? 'ok' : ''}" data-act="endSession">Continua</button></div>`;
   setTimeout(() => { const b = $('#ovFoot .btn:last-child'); if (b) b.focus(); }, 60);
+
 }
 function endSession() { const y = SES ? SES.backY : 0; SES = null; closeOverlay(); render(); window.scrollTo(0, y); flushToasts(); }
 
@@ -969,9 +980,9 @@ function wordPop(btn, tok) {
   const others = E.isReady() ? uniq(E.analyze(a.f).filter((x) => x !== a && x.key !== 'lemma').map((x) => `${x.e.head || x.e.lemma}: ${x.d}`)).filter((x) => x !== `${e.head || e.lemma}: ${a.d}`).slice(0, 4) : [];
   const p = document.createElement('div');
   p.className = 'pop'; p.id = 'pop'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Analisi della parola');
-  p.innerHTML = `<h4 lang="grc">${esc(a.f)}</h4><div class="lem">${gr(e.head || e.lemma)} — ${esc(e.m)}</div><p style="margin:6px 0 0"><b>${esc(a.d)}</b></p>
-    ${others.length ? `<p class="note" style="margin:4px 0 0">Altre analisi possibili:</p><ul>${others.map((o) => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}
-    <div class="row"><button class="tool" data-act="speakText" data-w="${esc(a.f)}">${I.sound}Ascolta</button>${e.k !== 'i' && e.k !== 'art' ? `<button class="tool" data-act="paradigm" data-e="${E.LEX.indexOf(e)}">${I.table}Paradigma</button>` : ''}${S.settings.online ? `<a class="tool" href="https://it.wiktionary.org/wiki/${encodeURIComponent(e.lemma)}" target="_blank" rel="noopener noreferrer">${I.globe}Wikizionario</a>` : ''}</div>`;
+  p.innerHTML = `<h4 lang="grc">${esc(a.f)}</h4><div class="lem">${gr(e.head || e.lemma)} — ${esc(e.m)}</div><p><b>${esc(a.d)}</b></p>
+    ${others.length ? `<p class="note">Altre analisi possibili:</p><ul>${others.map((o) => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}
+    <div class="tools"><button class="tool" data-act="speakText" data-w="${esc(a.f)}">${I.sound}Ascolta</button>${e.k !== 'i' && e.k !== 'art' ? `<button class="tool" data-act="paradigm" data-e="${E.LEX.indexOf(e)}">${I.table}Paradigma</button>` : ''}${S.settings.online ? `<a class="tool" href="https://it.wiktionary.org/wiki/${encodeURIComponent(e.lemma)}" target="_blank" rel="noopener noreferrer">${I.globe}Wikizionario</a>` : ''}</div>`;
   document.body.appendChild(p);
   const r = btn.getBoundingClientRect();
   const w = p.offsetWidth, h = p.offsetHeight;
@@ -1001,13 +1012,13 @@ function showModal(html) {
 }
 function closeModal() { const m = $('#modal'); if (m) m.remove(); }
 let modalCb = null;
-function askConfirm(text, okLabel, cb, danger, mood = 'think') { modalCb = cb; showModal(`<div style="text-align:center">${ermes(mood, 90)}</div><h2 style="text-align:center">${esc(text)}</h2><div class="foot-row" style="margin-top:16px"><button class="btn ghost" data-act="closeModal">Annulla</button><button class="btn ${danger ? 'err' : ''}" data-act="modalOk">${esc(okLabel)}</button></div>`); }
-function askText(label, value, cb) { modalCb = cb; showModal(`<label for="mdIn"><b>${esc(label)}</b></label><input id="mdIn" class="typed" style="margin-top:8px" maxlength="24" autocomplete="off" value="${esc(value)}"><div class="foot-row" style="margin-top:16px"><button class="btn ghost" data-act="closeModal">Annulla</button><button class="btn" data-act="modalOk">Salva</button></div>`); setTimeout(() => { const i = $('#mdIn'); if (i) i.focus(); }, 40); }
+function askConfirm(text, okLabel, cb, danger, mood = 'think') { modalCb = cb; showModal(`${ermes(mood, 88)}<h2>${esc(text)}</h2><div class="btns"><button class="btn ghost" data-act="closeModal">Annulla</button><button class="btn ${danger ? 'err' : ''}" data-act="modalOk">${esc(okLabel)}</button></div>`); }
+function askText(label, value, cb) { modalCb = cb; showModal(`<div class="field"><label for="mdIn">${esc(label)}</label><input id="mdIn" class="typed" maxlength="24" autocomplete="off" value="${esc(value)}"></div><div class="btns"><button class="btn ghost" data-act="closeModal">Annulla</button><button class="btn" data-act="modalOk">Salva</button></div>`); setTimeout(() => { const i = $('#mdIn'); if (i) i.focus(); }, 40); }
 function analysisSheet(s) {
   const toks = tokensOf(s);
   const words = SN.render(toks, { words: true });
   const rows = toks.map((t, i) => (t && !t.p && t.a ? `<tr><td class="gr" lang="grc">${esc(words[i])}</td><td>${gr(t.a.e.head || t.a.e.lemma)}<div class="note">${esc(t.a.e.m)}</div></td><td>${esc(t.a.d)}</td></tr>` : '')).join('');
-  openSheet('Analisi della frase', `<p class="greek-line" lang="grc" style="font-size:1.35rem">${esc(s.gr)}</p><p>${esc(s.it[0])}</p><div class="tbl-wrap"><table class="para wordtable"><thead><tr><th>Parola</th><th>Lemma</th><th>Analisi</th></tr></thead><tbody>${rows}</tbody></table></div>`);
+  openSheet('Analisi della frase', `<p class="greek-line small" lang="grc">${esc(s.gr)}</p><p>${esc(s.it[0])}</p><div class="tbl-wrap"><table class="para wordtable"><thead><tr><th>Parola</th><th>Lemma</th><th>Analisi</th></tr></thead><tbody>${rows}</tbody></table></div>`);
 }
 function methodSheet() { openSheet('Il metodo di costruzione', `${say('Sette passi per non perdersi in nessuna frase greca.', 'happy', 64)}<ol>${B.METHOD.map((m) => `<li><b>${esc(m.h)}</b><p>${esc(m.p)}</p></li>`).join('')}</ol>`); }
 
@@ -1103,9 +1114,9 @@ function render() {
   const view = VIEW.startsWith('topic:') ? viewTopic(VIEW.slice(6)) : VIEW === 'path' ? viewPath() : VIEW === 'gym' ? viewGym() : VIEW === 'lib' ? viewLibrary() : VIEW === 'words' ? viewWords() : viewMe();
   const cur = VIEW.startsWith('topic:') ? 'lib' : VIEW;
   app.innerHTML = `<div class="shell"><nav class="rail" aria-label="Sezioni"><div class="brand">${MARK}<b lang="grc">Ἑρμηνεύς</b></div>${NAV.map(([v, ic, it, g]) => `<button data-act="tab" data-v="${v}" ${cur === v ? 'aria-current="page"' : ''}>${ic}<span>${it}<span class="gr" lang="grc">${g}</span></span></button>`).join('')}</nav>
-    <div><main class="main" id="main" tabindex="-1"><header class="topbar"><div class="row"><div class="brand">${MARK}<b lang="grc">Ἑρμηνεύς</b></div>
+    <div><main class="main" id="main" tabindex="-1"><header class="topbar"><div class="bar-in"><div class="brand">${MARK}<b lang="grc">Ἑρμηνεύς</b></div>
       <div class="top-stats"><span class="chip streak ${st ? '' : 'off'}" title="Giorni di fila">${I.flame}${st}<span class="sr"> giorni di fila</span></span><span class="chip xp" title="Punti esperienza">${I.bolt}${S.xp}<span class="sr"> XP</span></span></div></div></header>
-      ${view}</main></div>
+      <div class="view">${view}</div></main></div>
     <aside class="side" aria-label="I tuoi progressi">${sidePanel()}</aside></div>
     <nav class="tabs" aria-label="Sezioni">${NAV.map(([v, ic, it]) => `<button data-act="tab" data-v="${v}" ${cur === v ? 'aria-current="page"' : ''}>${ic}<span>${it}</span></button>`).join('')}</nav>`;
   if (VIEW === 'words') bindWords();
@@ -1118,16 +1129,16 @@ function ringSvg(p, label) {
 function sententiaOfDay() { const n = daysBetween('2026-01-01', dayKey()); return B.SENTENTIAE[((n % B.SENTENTIAE.length) + B.SENTENTIAE.length) % B.SENTENTIAE.length]; }
 function goalCard() {
   const x = todayXP();
-  return `<section class="card goalcard">${ringSvg(x / S.goal, `Obiettivo di oggi: ${x} su ${S.goal} XP`)}<div class="txt"><b>Obiettivo di oggi</b><div class="note">${x >= S.goal ? 'Raggiunto! Ogni XP in più è un regalo.' : `${x} di ${S.goal} XP`}</div><div class="bar" style="margin-top:8px"><i style="width:${Math.min(100, Math.round((x / S.goal) * 100))}%"></i></div></div></section>`;
+  return `<section class="card goal">${ringSvg(x / S.goal, `Obiettivo di oggi: ${x} su ${S.goal} XP`)}<div class="grow"><b>Obiettivo di oggi</b><span class="note">${x >= S.goal ? 'Raggiunto: ogni XP in più è un regalo.' : `${x} di ${S.goal} XP`}</span><div class="bar"><i style="width:${Math.min(100, Math.round((x / S.goal) * 100))}%"></i></div></div></section>`;
 }
 function sidePanel() {
   const st = effectiveStreak();
   const rk = rankOf(S.xp);
   const max = sententiaOfDay();
   return `${goalCard()}
-    <section class="card"><div style="display:flex;gap:12px;align-items:center">${I.flame.replace('<svg', '<svg style="width:40px;height:40px;flex:none;color:var(--pri)"')}<div><b>${st} ${st === 1 ? 'giorno' : 'giorni'} di fila</b><div class="note">${S.shields ? `${S.shields} ${S.shields === 1 ? 'scudo protegge' : 'scudi proteggono'} la serie` : 'Ogni 7 giorni guadagni uno scudo'}</div></div></div></section>
-    <section class="card"><b>Grado: ${gr(rk.r.name)}</b><div class="note">${esc(rk.r.tr)}${rk.next ? ` · ${rk.next.xp - S.xp} XP a ${esc(rk.next.tr)}` : ''}</div><div class="bar" style="margin-top:10px"><i style="width:${rk.next ? Math.round(((S.xp - rk.r.xp) / (rk.next.xp - rk.r.xp)) * 100) : 100}%"></i></div></section>
-    <section class="card maxim"><p class="section-title" style="margin-top:0">Massima del giorno</p><p class="gr" lang="grc" style="font-size:1.3rem;margin:0">${esc(max[0])}</p><p style="margin:4px 0">${esc(max[1])}</p><p class="note">${esc(max[2])} · ${esc(max[3])}</p><button class="tool" data-act="speakText" data-w="${esc(max[0])}">${I.sound}Ascolta</button></section>`;
+    <section class="card streak-card">${I.flame}<div class="grow"><b>${st} ${st === 1 ? 'giorno' : 'giorni'} di fila</b><span class="note">${S.shields ? `${S.shields} ${S.shields === 1 ? 'scudo protegge' : 'scudi proteggono'} la serie` : 'Ogni 7 giorni guadagni uno scudo'}</span></div></section>
+    <section class="card"><p class="eyebrow">Grado</p><b><span class="gr" lang="grc">${esc(rk.r.name)}</span> · ${esc(rk.r.tr)}</b><div class="bar pri"><i style="width:${rk.next ? Math.round(((S.xp - rk.r.xp) / (rk.next.xp - rk.r.xp)) * 100) : 100}%"></i></div><span class="note">${rk.next ? `${rk.next.xp - S.xp} XP a ${esc(rk.next.tr)}` : 'Grado massimo'}</span></section>
+    <section class="card maxim"><p class="eyebrow">Massima del giorno</p><p class="gr" lang="grc">${esc(max[0])}</p><p>${esc(max[1])}</p><p class="note">${esc(max[2])} · ${esc(max[3])}</p><button class="tool" data-act="speakText" data-w="${esc(max[0])}">${I.sound}Ascolta</button></section>`;
 }
 // numerali greci con la keraia: 1 → αʹ, 22 → κβʹ
 const grNum = (n) => ['', 'ι', 'κ', 'λ'][Math.floor(n / 10)] + ['', 'α', 'β', 'γ', 'δ', 'ε', 'ϛ', 'ζ', 'η', 'θ'][n % 10] + 'ʹ';
@@ -1140,20 +1151,20 @@ const LESSON_ICON = (l) => (l.test ? I.trophy : l.teach ? I.book : I.dumbbell);
 function viewPath() {
   const cur = currentIdx();
   const cf = FLAT[cur];
-  const greet = S.name ? `Χαῖρε, ${esc(S.name)}! ` : 'Χαῖρε! ';
+  const greet = S.name ? `Χαῖρε, ${esc(S.name)}!` : 'Χαῖρε!';
   const ul = cf.unit.lessons.length, li = cf.li + 1;
-  let h = `<section class="resume"><div class="resume-top">${ermes('happy', 76)}<div class="resume-txt"><small>${greet}${S.course.times[cf.lesson.id] ? 'Ripassiamo?' : 'Si riparte da qui'}</small><b>${esc(cf.lesson.title)}</b><span>Unità ${cf.ui + 1} · ${esc(cf.unit.title)} · ${cf.lesson.test ? 'prova finale' : `lezione ${li} di ${ul}`}</span></div></div>
-    <div class="resume-bar" aria-hidden="true">${cf.unit.lessons.map((l, k) => `<i class="${k < cf.li || S.course.stars[l.id] ? 'on' : ''}${k === cf.li ? ' cur' : ''}"></i>`).join('')}</div>
-    <div class="resume-actions"><button class="btn block" data-act="startLesson" data-i="${cur}">${I.play}${cf.lesson.test ? 'Inizia la prova' : 'Continua'}</button><button class="btn ghost" data-act="jump">${I.road}<span>Mostra</span></button></div></section>`;
+  let h = `<section class="card hero resume" aria-label="Lezione attuale"><div class="resume-top">${ermes('happy', 76)}<div class="resume-txt"><p class="note"><span lang="grc">${greet}</span> ${S.course.times[cf.lesson.id] ? 'Ripassiamo questa lezione.' : 'Si riparte da qui.'}</p><h2>${esc(cf.lesson.title)}</h2><p class="note">Unità ${cf.ui + 1} · ${esc(cf.unit.title)} · ${cf.lesson.test ? 'prova finale' : `lezione ${li} di ${ul}`}</p></div></div>
+    <div class="lesson-dots" aria-hidden="true">${cf.unit.lessons.map((l, k) => `<i class="${k < cf.li || S.course.stars[l.id] ? 'on' : ''}${k === cf.li ? ' cur' : ''}"></i>`).join('')}</div>
+    <div class="btns"><button class="btn big" data-act="startLesson" data-i="${cur}">${cf.lesson.test ? 'Inizia la prova' : 'Continua'}</button><button class="btn big ghost square" data-act="jump" aria-label="Mostra la lezione nel percorso" title="Mostra nel percorso">${I.road}</button></div></section>`;
   h += `<div class="only-narrow">${goalCard()}</div>`;
-  if (canTranslate(sel())) h += `<section class="tr-quick"><p class="section-title">Allenati a tradurre</p>${translateCards(sel(), true)}</section>`;
-  const offs = [0, 46, 70, 46, 0, -46, -70, -46];
+  if (canTranslate(sel())) h += `<section class="sec"><p class="eyebrow">Allenati a tradurre</p>${translateCards(sel())}</section>`;
+  const offs = [0, 44, 66, 44, 0, -44, -66, -44];
   UNITS.forEach((u, ui) => {
     const grp = TOPIC[u.id] && GROUPS[TOPIC[u.id].group] ? GROUPS[TOPIC[u.id].group].color : 'g-nom';
     const fi = firstLessonIdx(ui);
     const locked = !isUnlocked(fi);
-    h += `<section class="unit ${grp}${locked ? ' locked' : ''}" id="unit-${u.id}" aria-label="Unità ${ui + 1}: ${esc(u.title)}"><div class="unit-banner"><span class="unum" aria-hidden="true" lang="grc">${grNum(ui + 1)}</span><div class="t"><small>Unità ${ui + 1}</small><b>${esc(u.title)}</b></div><button class="btn small" data-act="topic" data-t="${u.id}" aria-label="Guida: ${esc(u.title)}">${I.book}<span>Guida</span></button></div><div class="path">`;
-    let y = 22, nodes = '', walked = 0;
+    h += `<section class="unit ${grp}${locked ? ' locked' : ''}" id="unit-${u.id}" aria-label="Unità ${ui + 1}: ${esc(u.title)}"><div class="unit-banner"><span class="unum" aria-hidden="true" lang="grc">${grNum(ui + 1)}</span><div class="t"><small>Unità ${ui + 1}</small><b>${esc(u.title)}</b></div>${toolBtnPlain('topic', I.book, 'Guida: ' + esc(u.title), `data-t="${u.id}"`)}</div><div class="path">`;
+    let y = 24, nodes = '', walked = 0;
     const pts = [];
     u.lessons.forEach((l, li) => {
       const idx = fi + li;
@@ -1162,40 +1173,43 @@ function viewPath() {
       const isCur = idx === cur;
       const cls = ['node', l.test ? 'test' : '', !unlocked ? 'locked' : st ? 'done' : '', isCur ? 'current' : ''].filter(Boolean).join(' ');
       const icon = !unlocked ? I.lock : st && !isCur ? (l.test ? I.trophy : I.check2) : LESSON_ICON(l);
-      const pad = isCur ? 30 : 0;
-      pts.push([120 + offs[li % offs.length], y + pad + (isCur || l.test ? 40 : 36)]);
+      const pad = isCur ? 34 : 0;
+      pts.push([120 + offs[li % offs.length], y + pad + (isCur ? 37 : 33)]);
       y += 112 + pad;
       if (unlocked) walked = li;
-      nodes += `<div class="node-wrap" style="transform:translateX(${offs[li % offs.length]}px)${pad ? ';height:' + (112 + pad) + 'px;padding-top:' + pad + 'px' : ''}">${isCur ? '<span class="start-tag" aria-hidden="true" style="top:-8px">INIZIA</span>' : ''}
+      const stars = l.test || !st ? '' : [1, 2, 3].map((n) => I.star.replace('<svg', `<svg class="${n <= st ? 'on' : ''}"`)).join('');
+      nodes += `<div class="node-wrap" style="transform:translateX(${offs[li % offs.length]}px)${pad ? ';height:' + (112 + pad) + 'px;padding-top:' + pad + 'px' : ''}">${isCur ? '<span class="start-tag" aria-hidden="true">INIZIA</span>' : ''}
         <button class="${cls}" data-act="node" data-i="${idx}" aria-label="${esc(l.title)}${!unlocked ? ' (bloccata)' : st ? ` (${st} ${st === 1 ? 'stella' : 'stelle'})` : ''}" aria-expanded="${openNode === idx}">${icon}</button>
-        <div class="node-stars" aria-hidden="true">${l.test ? '' : [1, 2, 3].map((n) => I.star.replace('<svg', `<svg class="${n <= st ? 'on' : ''}"`)).join('')}</div>
+        <div class="node-stars" aria-hidden="true">${stars}</div>
         ${openNode === idx ? nodePop(idx) : ''}</div>`;
     });
     h += roadSvg(pts, walked) + nodes + `</div></section>`;
   });
   h += `<button class="jump" id="jump" data-act="jump" hidden>${I.road}<span>Lezione attuale</span></button>`;
-  h += `<div class="trophy">${I.laurel.replace('<svg', '<svg style="width:40px;height:40px;color:var(--star)"')}Alla fine del percorso: la corona d’alloro dell’ἑρμηνεύς.</div>`;
+  h += `<div class="trophy">${I.laurel}<span>Alla fine del percorso: la corona d’alloro dell’ἑρμηνεύς.</span></div>`;
   return h;
 }
+// pulsante rotondo semplice (senza contorno), con il nome per i lettori di schermo
+function toolBtnPlain(act, icon, label, extra = '') { return `<button class="iconbtn" data-act="${act}" aria-label="${label}" title="${label}" ${extra}>${icon}</button>`; }
 function nodePop(idx) {
   const f = FLAT[idx];
   const l = f.lesson;
   const st = S.course.stars[l.id] || 0;
   if (!isUnlocked(idx)) {
     const unitLocked = !isUnlocked(firstLessonIdx(f.ui));
-    return `<div class="node-pop locked" role="dialog" aria-label="${esc(l.title)}"><b>${esc(l.title)}</b><p>${unitLocked ? 'Questa unità è ancora chiusa. Se l’hai già studiata in classe, puoi aprirla.' : 'Completa prima le lezioni precedenti.'}</p>${unitLocked ? `<button class="btn small" data-act="unlockUnit" data-u="${f.ui}">Apri l’unità</button>` : ''}</div>`;
+    return `<div class="node-pop locked" role="dialog" aria-label="${esc(l.title)}"><b>${esc(l.title)}</b><p>${unitLocked ? 'Questa unità è ancora chiusa. Se l’hai già studiata in classe, puoi aprirla.' : 'Completa prima le lezioni precedenti.'}</p>${unitLocked ? `<button class="btn" data-act="unlockUnit" data-u="${f.ui}">Apri l’unità</button>` : ''}</div>`;
   }
   return `<div class="node-pop" role="dialog" aria-label="${esc(l.title)}"><b>${esc(l.title)}</b><p>${esc(l.sub || '')}${l.test ? ' · serve il 70%' : ''}</p>
-    <button class="btn small" data-act="startLesson" data-i="${idx}">${st ? 'Ripeti +XP' : l.test ? 'Inizia la prova' : 'Inizia'}</button>
-    ${st && l.teach ? `<button class="btn small ghost" style="margin-top:8px" data-act="startLessonTeach" data-i="${idx}">Rivedi la spiegazione</button>` : ''}</div>`;
+    <button class="btn" data-act="startLesson" data-i="${idx}">${st ? 'Ripeti (+XP)' : l.test ? 'Inizia la prova' : 'Inizia'}</button>
+    ${st && l.teach ? `<button class="btn ghost" data-act="startLessonTeach" data-i="${idx}">Rivedi la spiegazione</button>` : ''}</div>`;
 }
 function scrollToCurrent() { const n = $('.node.current'); if (n) n.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }
 // le traduzioni si aprono con la prima declinazione (sintagmi senza verbo); dal presente con frasi complete
 const canTranslate = (T) => T.has('d1');
-function translateCards(T, compact) {
+function translateCards(T, withNew) {
   const on = canTranslate(T);
-  const card = (m, title, sub, sample) => `<button class="tr-card${compact ? ' compact' : ''}" data-act="practice" data-m="${m}" ${on ? '' : 'disabled'}><span class="tr-sample" lang="${m === 'gr_it' ? 'grc' : 'it'}">${sample}</span><b>${title}</b><span class="tr-sub">${sub}</span></button>`;
-  return `<div class="tr-row">${card('gr_it', 'Versione', 'dal greco all’italiano', 'Ἡ τῆς θεᾶς τιμή')}${card('it_gr', 'Retroversione', 'dall’italiano al greco', 'L’onore della dea')}</div>${on ? '' : '<p class="note">Le traduzioni si aprono con l’unità «Prima declinazione»: prima servono l’alfabeto e l’articolo.</p>'}`;
+  const row = (m, icon, title, sub, dis) => `<li><button class="rowbtn" data-act="practice" data-m="${m}" ${dis ? 'disabled' : ''}><span class="ico">${icon}</span><span class="txt"><b>${title}</b><span>${sub}</span></span>${I.chev}</button></li>`;
+  return `<div class="card flush"><ul class="list">${row('gr_it', I.translate, 'Versione', 'Dal greco all’italiano', !on)}${row('it_gr', I.pen, 'Retroversione', 'Dall’italiano al greco', !on)}${withNew ? row('nuove', I.spark, 'Frasi nuove', 'Create sul momento, sempre diverse', !on || !S.settings.gen) : ''}</ul></div>${on ? '' : '<p class="note">Le traduzioni si aprono con l’unità «Prima declinazione».</p>'}`;
 }
 function viewGym() {
   const T = sel();
@@ -1203,49 +1217,49 @@ function viewGym() {
   const units = UNITS.filter((u) => T.has(u.id));
   const unit = p.unit && T.has(p.unit) ? p.unit : units[units.length - 1].id;
   const nErr = S.mistakes.length;
-  return `<h1 style="margin-top:18px">Palestra</h1>
-    <p class="section-title">Traduzione</p>
-    <div class="levels" role="group" aria-label="Difficoltà">${Object.entries(LEVELS).map(([k, l]) => `<button data-act="pracLevel" data-v="${k}" aria-pressed="${p.level === k}">${l.label}</button>`).join('')}</div>
-    <p class="note level-desc">${esc(LEVELS[p.level] ? LEVELS[p.level].desc : '')}</p>${translateCards(T)}
-    <div class="grid2" style="margin-top:12px">
-      <button class="mode" data-act="practice" data-m="nuove" ${S.settings.gen && canTranslate(T) ? '' : 'disabled'}>${I.spark}<b>Frasi nuove</b><span>create sul momento, ogni volta diverse</span></button>
-      <button class="mode" data-act="methodSheet">${I.method}<b>Il metodo</b><span>sette passi per tradurre una frase</span></button></div>
-    <p class="section-title">Allenamento su misura</p>${say('Scegli un argomento e il tipo di esercizi: le frasi useranno solo le parole che hai già incontrato.', 'happy', 56)}
-    <div class="chips" role="group" aria-label="Argomento">${units.map((u) => `<button data-act="pracUnit" data-u="${u.id}" aria-pressed="${u.id === unit}">${esc(u.title)}</button>`).join('')}</div>
-    <div class="chips" role="group" aria-label="Tipo di esercizi" style="margin-top:14px">${[['misto', 'Misti'], ['frasi', 'Solo frasi'], ['forme', 'Forme'], ['parole', 'Parole']].map(([v, l]) => `<button data-act="pracType" data-v="${v}" aria-pressed="${p.type === v}">${l}</button>`).join('')}</div>
-    <div class="setting" style="border:0"><div><b>Solo parole già incontrate</b><span>Disattiva per usare tutto il lessico degli argomenti aperti (più difficile)</span></div><label class="switch"><input type="checkbox" data-set="pracNarrow" ${p.wide ? '' : 'checked'} aria-label="Solo parole già incontrate"><i></i></label></div>
-    <button class="btn block" style="margin:6px 0" data-act="practice" data-m="${p.type}">${I.play}Allenati</button>
-    <p class="section-title">Altro</p><div class="grid2">
-      <button class="mode" data-act="practice" data-m="review" ${nErr ? '' : 'disabled'}>${I.retry}<b>Ripasso errori</b><span>${nErr ? nErr + ' da rivedere' : 'nessun errore'}</span></button>
-      <button class="mode" data-act="practice" data-m="alfabeto">${I.alpha}<b>Alfabeto</b><span>lettere, letture, accenti</span></button></div>`;
+  const row = (act, m, icon, title, sub, extra = '', dis = false) => `<li><button class="rowbtn" data-act="${act}" ${m ? `data-m="${m}"` : ''} ${dis ? 'disabled' : ''}><span class="ico">${icon}</span><span class="txt"><b>${title}</b><span>${sub}</span></span>${extra}${I.chev}</button></li>`;
+  return `<header class="page-head"><h1>Palestra</h1><p class="lede">Allenati come vuoi: traduzioni, forme e parole, sugli argomenti che hai già aperto.</p></header>
+    <section class="sec"><p class="eyebrow">Traduzione</p>
+      <div class="card"><div class="field"><span class="label" id="lvLab">Difficoltà</span><div class="seg" role="group" aria-labelledby="lvLab">${Object.entries(LEVELS).map(([k, l]) => `<button data-act="pracLevel" data-v="${k}" aria-pressed="${p.level === k}">${l.label}</button>`).join('')}</div></div><p class="note level-desc">${esc(LEVELS[p.level] ? LEVELS[p.level].desc : '')}</p></div>
+      ${translateCards(T, true)}</section>
+    <section class="sec"><p class="eyebrow">Allenamento su misura</p>
+      <div class="card custom">
+        <div class="field"><label for="pracUnit">Argomento</label><div class="select"><select id="pracUnit">${units.map((u) => `<option value="${u.id}" ${u.id === unit ? 'selected' : ''}>${esc(u.title)}</option>`).join('')}</select></div></div>
+        <div class="field"><span class="label" id="tyLab">Esercizi</span><div class="seg" role="group" aria-labelledby="tyLab">${[['misto', 'Misti'], ['frasi', 'Frasi'], ['forme', 'Forme'], ['parole', 'Parole']].map(([v, l]) => `<button data-act="pracType" data-v="${v}" aria-pressed="${p.type === v}">${l}</button>`).join('')}</div></div>
+        <div class="setting"><div class="grow"><b>Solo parole già incontrate</b><span>Spegni per usare tutto il lessico degli argomenti aperti</span></div><label class="switch"><input type="checkbox" data-set="pracNarrow" ${p.wide ? '' : 'checked'} aria-label="Solo parole già incontrate"><i></i></label></div>
+        <button class="btn big block" data-act="practice" data-m="${p.type}">Allenati</button></div></section>
+    <section class="sec"><p class="eyebrow">Altro</p><div class="card flush"><ul class="list">
+      ${row('practice', 'review', I.retry, 'Ripasso errori', nErr ? 'Le risposte sbagliate, da rifare' : 'Nessun errore da rivedere', nErr ? `<span class="count">${nErr}</span>` : '', !nErr)}
+      ${row('practice', 'alfabeto', I.alpha, 'Alfabeto', 'Lettere, letture e accenti')}
+      ${row('methodSheet', '', I.method, 'Il metodo', 'Sette passi per tradurre una frase')}</ul></div></section>`;
 }
 function viewLibrary() {
-  let h = `<h1 style="margin-top:18px">Teoria</h1><p class="muted">I ventidue argomenti del biennio. Le tabelle sono generate dal motore morfologico: niente errori di stampa.</p>
-    <div class="tools"><button class="tool" data-act="methodSheet">${I.method}Il metodo di costruzione</button></div>`;
+  let h = `<header class="page-head"><h1>Teoria</h1><p class="lede">I ventidue argomenti del biennio. Le tabelle le genera il motore morfologico, senza errori di stampa.</p></header>
+    <div class="card flush"><ul class="list"><li><button class="rowbtn" data-act="methodSheet"><span class="ico">${I.method}</span><span class="txt"><b>Il metodo di costruzione</b><span>Sette passi per non perdersi in una frase</span></span>${I.chev}</button></li></ul></div>`;
   for (const [gid, gdef] of Object.entries(GROUPS)) {
     const list = TOPICS.filter((t) => t.group === gid);
     if (!list.length) continue;
-    h += `<p class="section-title">${esc(gdef.name)}</p><div class="card" style="padding:4px 12px"><ul class="list">${list.map((t) => `<li><button class="rowbtn ${gdef.color}" data-act="topic" data-t="${t.id}"><span class="num">${TOPIC[t.id].n}</span><span class="txt"><b>${esc(t.title)}</b><span>${esc(t.desc)}</span></span>${I.chev}</button></li>`).join('')}</ul></div>`;
+    h += `<section class="sec"><p class="eyebrow">${esc(gdef.name)}</p><div class="card flush"><ul class="list">${list.map((t) => `<li><button class="rowbtn ${gdef.color}" data-act="topic" data-t="${t.id}"><span class="num">${TOPIC[t.id].n}</span><span class="txt"><b>${esc(t.title)}</b><span>${esc(t.desc)}</span></span>${I.chev}</button></li>`).join('')}</ul></div></section>`;
   }
   return h;
 }
 function viewTopic(id) {
   const t = TOPIC[id];
   const ui = unitIdx(id);
-  return `<div style="display:flex;align-items:center;gap:10px;margin-top:16px"><button class="iconbtn" data-act="tab" data-v="lib" aria-label="Torna alla teoria">${I.back}</button><span class="tag">${esc(GROUPS[t.group].name)} · ${t.n}</span></div>
-    <h1 style="margin-top:12px">${esc(t.title)}</h1><p class="muted">${esc(t.desc)}</p>
-    <div class="tools">${ui >= 0 && isUnlocked(firstLessonIdx(ui)) ? `<button class="btn small" data-act="goUnit" data-u="${id}">${I.road}Vai all’unità nel percorso</button>` : ''}</div>
+  return `<header class="page-head"><div class="row"><button class="iconbtn" data-act="tab" data-v="lib" aria-label="Torna alla teoria">${I.back}</button><span class="eyebrow">${esc(GROUPS[t.group].name)} · ${t.n}</span></div>
+    <h1>${esc(t.title)}</h1><p class="lede">${esc(t.desc)}</p>
+    ${ui >= 0 && isUnlocked(firstLessonIdx(ui)) ? `<div><button class="btn small ghost" data-act="goUnit" data-u="${id}">${I.road}Vai all’unità nel percorso</button></div>` : ''}</header>
     <section class="card">${theoryHtml(t)}</section>`;
 }
 function viewWords() {
   const q = vocabQueue();
   const nDue = q.due.length + q.fresh.length;
   const learned = q.all.filter((e) => S.vocab[e.id] && S.vocab[e.id].box >= 3).length;
-  return `<h1 style="margin-top:18px">Lessico</h1>
-    <section class="card"><h2>Ripetizione dilazionata</h2><p class="note">${nDue ? `${q.due.length} parole da ripassare e ${q.fresh.length} nuove per oggi.` : 'Per oggi hai finito: torna domani.'} ${learned} parole imparate su ${q.all.length} incontrate nel percorso.</p><div id="flash" class="flash"></div></section>
-    <section class="card"><h2>Cerca una forma</h2><p class="note">Scrivi una parola greca (anche senza accenti): il motore la analizza.</p>
+  return `<header class="page-head"><h1>Lessico</h1><p class="lede">${learned} parole imparate su ${q.all.length} incontrate nel percorso.</p></header>
+    <section class="sec"><p class="eyebrow">Ripasso di oggi</p><div class="card"><p class="note">${nDue ? `${q.due.length} da ripassare · ${q.fresh.length} nuove` : 'Per oggi hai finito: torna domani.'}</p><div id="flash" class="flash"></div></div></section>
+    <section class="sec"><p class="eyebrow">Cerca una forma</p><div class="card stack"><p class="note">Scrivi una parola greca, anche senza accenti: il motore la analizza.</p>
     <div class="search"><label class="sr" for="q">Forma greca</label><input id="q" class="gr" lang="grc" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="es. λύσει"><button class="btn" data-act="search" aria-label="Cerca">${I.lens}</button></div>
-    <p class="note" style="margin-top:6px">Dal computer puoi usare le lettere latine (h = η, w = ω…) e i segni ) ( / \\ = |.</p><div id="results"></div></section>`;
+    <p class="note">Dal computer puoi usare le lettere latine (h = η, w = ω…) e i segni ) ( / \\ = |.</p><div id="results"></div></div></section>`;
 }
 let flashCur = null;
 function bindWords() {
@@ -1263,7 +1277,7 @@ function drawFlash() {
   const f = $('#flash'); if (!f || !flashCur) return;
   const e = flashCur.e;
   f.innerHTML = `<span class="gr" lang="grc">${esc(e.head || e.lemma)}</span><div class="meaning">${flashCur.shown ? esc(e.m) : '<span class="muted">Ricordi il significato?</span>'}</div>
-    <div class="foot-row" style="justify-content:center;margin-top:12px">${flashCur.shown ? `<button class="btn err small" data-act="flash" data-v="0">Non lo sapevo</button><button class="btn ok small" data-act="flash" data-v="1">Lo sapevo</button>` : `<button class="btn small" data-act="flashShow">Mostra</button><button class="tool" data-act="speakText" data-w="${esc(e.lemma)}">${I.sound}Ascolta</button>`}</div>`;
+    ${flashCur.shown ? `<div class="btns"><button class="btn err" data-act="flash" data-v="0">Non lo sapevo</button><button class="btn ok" data-act="flash" data-v="1">Lo sapevo</button></div>` : `<div class="btns"><button class="btn" data-act="flashShow">Mostra</button><button class="btn ghost" data-act="speakText" data-w="${esc(e.lemma)}">${I.sound}Ascolta</button></div>`}`;
 }
 function searchForm() {
   const v = G.nfc(($('#q').value || '').trim());
@@ -1295,7 +1309,9 @@ function weekSvg() {
 }
 function medal(id, on) {
   const b = BADGES.find((x) => x.id === id);
-  return `<svg class="medal" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="${on ? 'var(--star-soft)' : 'var(--paper-2)'}" stroke="${on ? 'var(--star)' : 'var(--line)'}" stroke-width="3"/><path d="M12 30c3-1 5-4 6-8M36 30c-3-1-5-4-6-8M14 22c2 0 3-1 4-3M34 22c-2 0-3-1-4-3" stroke="${on ? 'var(--star-d)' : 'var(--muted)'}" stroke-width="2" fill="none" stroke-linecap="round"/><text x="24" y="29" text-anchor="middle" font-family="GFS Didot, serif" font-size="15" fill="${on ? 'var(--ink)' : 'var(--muted)'}">${esc(b ? b.name[0] : '?')}</text></svg>`;
+  // medaglia: disco con bordo a dentelli e iniziale greca dell'insegna
+  const teeth = Array.from({ length: 16 }, (_, i) => { const a1 = (i / 16) * Math.PI * 2; return `${(24 + Math.cos(a1) * 22).toFixed(1)},${(24 + Math.sin(a1) * 22).toFixed(1)}`; });
+  return `<svg class="medal" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="${on ? 'var(--star)' : 'var(--off-d)'}"/>${teeth.map((p) => `<circle cx="${p.split(',')[0]}" cy="${p.split(',')[1]}" r="2.6" fill="${on ? 'var(--star)' : 'var(--off-d)'}"/>`).join('')}<circle cx="24" cy="24" r="17" fill="${on ? 'var(--star-soft)' : 'var(--off)'}"/><text x="24" y="30.5" text-anchor="middle" font-family="GFS Didot, Gentium Plus, serif" font-size="19" fill="${on ? 'var(--star-d)' : 'var(--on-off)'}">${esc(b ? [...b.name][0] : '?')}</text></svg>`;
 }
 /* ---------- Salvataggio dei progressi ---------- */
 const BADGE_IDS = () => BADGES.map((b) => b.id);
@@ -1307,21 +1323,20 @@ function sinceText(t) {
 }
 function saveCard() {
   const old = !S.backupAt || Date.now() - S.backupAt > 7 * 864e5;
-  return `<section class="card savecard"><div class="save-head"><span class="save-dot ${saveFailed ? 'bad' : ''}" aria-hidden="true">${saveFailed ? I.close : I.check2}</span><div><b>${saveFailed ? 'Il browser non permette di salvare' : 'Progressi salvati su questo dispositivo'}</b><span>${saveFailed ? 'Usa il codice di salvataggio prima di chiudere la pagina.' : 'Si salvano da soli dopo ogni risposta. Ultima copia di sicurezza: ' + sinceText(S.backupAt) + '.'}</span></div></div>
-    ${old && S.stats.lessons ? '<p class="note save-tip">Per non perderli se cambi telefono o cancelli i dati del browser, tieni da parte il tuo codice di salvataggio.</p>' : ''}
-    <div class="save-actions"><button class="btn block" data-act="saveCode">${I.keys}Codice di salvataggio</button><button class="btn ghost" data-act="export">${I.install}<span>File completo</span></button></div>
-    <button class="linkbtn" data-act="restoreSheet">Hai già un codice o un file? Ripristina i progressi</button></section>`;
+  return `<section class="card savecard"><div class="save-head"><span class="save-dot ${saveFailed ? 'bad' : ''}" aria-hidden="true">${saveFailed ? I.close : I.check2}</span><div class="grow"><b>${saveFailed ? 'Il browser non permette di salvare' : 'Progressi salvati su questo dispositivo'}</b><span>${saveFailed ? 'Usa il codice di salvataggio prima di chiudere la pagina.' : 'Si salvano da soli dopo ogni risposta. Ultima copia di sicurezza: ' + sinceText(S.backupAt) + '.'}</span></div></div>
+    ${old && S.stats.lessons ? '<p class="save-tip">Per non perderli se cambi telefono o cancelli i dati del browser, tieni da parte il codice di salvataggio.</p>' : ''}
+    <div class="btns"><button class="btn" data-act="saveCode">Codice</button><button class="btn ghost" data-act="export">Scarica copia</button></div>
+    <button class="linkbtn" data-act="restoreSheet">Ripristina da un codice o da un file</button></section>`;
 }
 function codeSheet(mode) {
   const code = SV.encode(S, LESSON_IDS(), BADGE_IDS());
-  const body = mode === 'restore' ? '' : `<p>Questo codice contiene percorso, stelle, punti, serie, insegne e impostazioni. Copialo dove vuoi (note, messaggi, quaderno): su un altro dispositivo lo inserisci qui per ritrovare tutto.</p>
+  const body = mode === 'restore' ? '' : `<p>Il codice contiene percorso, stelle, punti, serie, insegne e impostazioni. Copialo dove vuoi (note, messaggi, quaderno) e inseriscilo qui su un altro dispositivo.</p>
     <div class="savecode" id="savecode" tabindex="0" aria-label="Codice di salvataggio">${esc(code)}</div>
-    <div class="save-actions"><button class="btn block" data-act="copyCode">${I.cards}Copia il codice</button></div>
-    <p class="note">Il ripasso degli errori e le schede del lessico restano solo nella copia completa su file.</p><hr class="sep">`;
+    <button class="btn block" data-act="copyCode">${I.cards}Copia il codice</button>
+    <p class="note">Il ripasso degli errori e le schede del lessico restano solo nella copia su file.</p><hr class="sep">`;
   openSheet(mode === 'restore' ? 'Ripristina i progressi' : 'Codice di salvataggio', body + `
-    <label for="codeIn"><b>Inserisci un codice</b></label><textarea id="codeIn" class="typed codein" rows="3" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Per esempio 1A2B-C3D4-…"></textarea>
-    <p class="note" id="codeMsg" role="status"></p>
-    <div class="save-actions"><button class="btn block" data-act="restoreCode">Ripristina dal codice</button><button class="btn ghost" data-act="import">${I.install}<span>Da file</span></button></div>`);
+    <div class="field"><label for="codeIn">Inserisci un codice</label><textarea id="codeIn" class="typed codein" rows="3" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Per esempio 1A2B-C3D4-…"></textarea><p class="note" id="codeMsg" role="status"></p></div>
+    <div class="btns"><button class="btn" data-act="restoreCode">Ripristina</button><button class="btn ghost" data-act="import">Da file</button></div>`);
 }
 function applyRestore(part) {
   const keepOnb = { onboarded: true, v: 2 };
@@ -1335,53 +1350,54 @@ function viewMe() {
   const rk = rankOf(S.xp);
   const acc = S.stats.answered ? Math.round((S.stats.correct / S.stats.answered) * 100) : 0;
   const set = S.settings;
-  const sw = (k, label, sub) => `<div class="setting"><div><b>${label}</b><span>${sub}</span></div><label class="switch"><input type="checkbox" data-set="${k}" ${set[k] === true || set[k] === 'lenient' || set[k] === 'keys' ? 'checked' : ''} aria-label="${esc(label)}"><i></i></label></div>`;
+  const sw = (k, label, sub) => `<div class="setting"><div class="grow"><b>${label}</b><span>${sub}</span></div><label class="switch"><input type="checkbox" data-set="${k}" ${set[k] === true || set[k] === 'lenient' || set[k] === 'keys' ? 'checked' : ''} aria-label="${esc(label)}"><i></i></label></div>`;
   const cu = FLAT[currentIdx()];
-  return `<div style="display:flex;align-items:center;gap:14px;margin-top:18px">${ermes('happy', 72)}<div><h1 style="margin:0">${S.name ? esc(S.name) : 'Il tuo profilo'}</h1><div class="note">${gr(rk.r.name)} · ${esc(rk.r.tr)}</div></div></div>
+  return `<header class="profile-head">${ermes('happy', 72)}<div class="grow"><h1>${S.name ? esc(S.name) : 'Il tuo profilo'}</h1><p class="note"><span class="gr" lang="grc">${esc(rk.r.name)}</span> · ${esc(rk.r.tr)}</p></div></header>
+    <div class="stats3"><div class="stat" style="--c:var(--flame)">${I.flame}<b>${effectiveStreak()}</b><small>Serie</small></div><div class="stat" style="--c:var(--star-d)">${I.bolt}<b>${S.xp}</b><small>XP</small></div><div class="stat" style="--c:var(--good)">${I.check2}<b>${acc}%</b><small>Precisione</small></div></div>
     ${saveCard()}
-    <div class="stats3"><div class="stat" style="--c:var(--pri)"><small>Serie</small><b>${effectiveStreak()}</b></div><div class="stat" style="--c:var(--star)"><small>XP</small><b>${S.xp}</b></div><div class="stat" style="--c:var(--good)"><small>Precisione</small><b>${acc}%</b></div></div>
-    <section class="card"><h2>Ultimi sette giorni</h2>${weekSvg()}<p class="note">Lezioni completate: ${S.stats.lessons} · unità superate: ${doneUnits()} su ${UNITS.length} · scudi: ${S.shields}</p></section>
-    <p class="section-title">Insegne</p><section class="card"><div class="badges">${BADGES.map((b) => `<div class="badge ${S.badges[b.id] ? '' : 'off'}">${medal(b.id, !!S.badges[b.id])}<b lang="grc">${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join('')}</div></section>
-    <p class="section-title">Impostazioni</p><section class="card">
-    <div class="setting"><div><b>Posizione nel percorso</b><span>Ora: ${esc(cu.unit.title)} · ${esc(cu.lesson.title)}</span></div><button class="btn small ghost" data-act="placement">Cambia</button></div>
-    <div class="setting"><div><b>Obiettivo giornaliero</b><span>XP al giorno</span></div><div class="seg">${[30, 50, 80, 120].map((g) => `<button data-act="goal" data-v="${g}" aria-pressed="${S.goal === g}">${g}</button>`).join('')}</div></div>
-    ${sw('accents', 'Accenti facoltativi', 'Un errore di accento o di spirito viene segnalato ma non conta come errore')}
-    ${sw('input', 'Scrivi invece delle tessere', 'Nelle traduzioni rispondi con la tastiera')}
-    ${sw('gen', 'Frasi generate', 'Oltre alle frasi verificate, frasi nuove create sul dispositivo')}
-    ${sw('sound', 'Suoni', 'Segnali sonori per le risposte')}
-    ${sw('voice', 'Lettura ad alta voce', 'Pronuncia erasmiana con la voce italiana del dispositivo')}
-    ${sw('online', 'Wikizionario', 'Collegamento al dizionario online (si invia solo la parola cercata)')}
-    <div class="setting"><div><b>Tema</b><span>Colori dell’app</span></div><div class="seg">${[['auto', 'Auto'], ['light', 'Chiaro'], ['dark', 'Scuro']].map(([v, l]) => `<button data-act="theme" data-v="${v}" aria-pressed="${set.theme === v}">${l}</button>`).join('')}</div></div>
-    <div class="setting"><div><b>Installa l’app</b><span>${isStandalone() ? 'Hermeneus è già installata.' : 'Sul telefono funziona anche senza rete.'}</span></div><button class="btn small" data-act="install" ${isStandalone() ? 'disabled' : ''}>${I.install}Installa</button></div>
-    <div class="setting"><div><b>Nome</b><span>Facoltativo, resta sul dispositivo</span></div><button class="btn small ghost" data-act="rename">Cambia</button></div>
-    <div class="setting"><div><b>Azzera i progressi</b><span>Cancella tutto da questo dispositivo</span></div><button class="btn small err" data-act="reset">Azzera</button></div></section>
-    <section class="card"><h2>Informazioni</h2><p class="note">Hermeneus funziona tutto sul tuo dispositivo: nessun account, nessuna raccolta di dati, nessuna intelligenza artificiale. Pronuncia erasmiana della scuola italiana, letta dalla sintesi vocale del dispositivo. Caratteri: Gentium Plus, GFS Didot, Rubik (licenza SIL OFL 1.1). Dizionario online facoltativo: Wikizionario (CC BY-SA).</p>
-    <p class="note">${E.LEX.length} lemmi · ${UNITS.length} unità · ${FLAT.length} lezioni · ${BANK.length} frasi verificate · ${B.SENTENTIAE.length} massime.</p></section>`;
+    <section class="sec"><p class="eyebrow">Ultimi sette giorni</p><div class="card stack">${weekSvg()}<p class="note">Lezioni completate: ${S.stats.lessons} · unità superate: ${doneUnits()} su ${UNITS.length} · scudi: ${S.shields}</p></div></section>
+    <section class="sec"><p class="eyebrow">Insegne</p><div class="card"><div class="badges">${BADGES.map((b) => `<div class="badge ${S.badges[b.id] ? '' : 'off'}">${medal(b.id, !!S.badges[b.id])}<b lang="grc">${esc(b.name)}</b><span>${esc(b.desc)}</span></div>`).join('')}</div></div></section>
+    <section class="sec"><p class="eyebrow">Studio</p><div class="card flush">
+      <div class="setting"><div class="grow"><b>Posizione nel percorso</b><span>${esc(cu.unit.title)} · ${esc(cu.lesson.title)}</span></div><button class="btn small ghost" data-act="placement">Cambia</button></div>
+      <div class="setting wrap"><div class="grow"><b>Obiettivo giornaliero</b><span>XP al giorno</span></div><div class="seg">${[30, 50, 80, 120].map((g) => `<button data-act="goal" data-v="${g}" aria-pressed="${S.goal === g}">${g}</button>`).join('')}</div></div>
+      ${sw('accents', 'Accenti facoltativi', 'Un errore di accento o di spirito viene segnalato ma non conta')}
+      ${sw('input', 'Rispondi scrivendo', 'Nelle traduzioni usa la tastiera al posto delle tessere')}
+      ${sw('gen', 'Frasi generate', 'Oltre alle frasi verificate, frasi nuove create sul dispositivo')}</div></section>
+    <section class="sec"><p class="eyebrow">Suoni e aspetto</p><div class="card flush">
+      ${sw('sound', 'Suoni', 'Segnali sonori per le risposte')}
+      ${sw('voice', 'Lettura ad alta voce', 'Pronuncia erasmiana con la voce italiana del dispositivo')}
+      <div class="setting wrap"><div class="grow"><b>Tema</b><span>Colori dell’app</span></div><div class="seg">${[['auto', 'Automatico'], ['light', 'Chiaro'], ['dark', 'Scuro']].map(([v, l]) => `<button data-act="theme" data-v="${v}" aria-pressed="${set.theme === v}">${l}</button>`).join('')}</div></div></div></section>
+    <section class="sec"><p class="eyebrow">App e dati</p><div class="card flush">
+      ${sw('online', 'Wikizionario', 'Collegamento al dizionario online: si invia solo la parola cercata')}
+      <div class="setting"><div class="grow"><b>Installa l’app</b><span>${isStandalone() ? 'Hermeneus è già installata.' : 'Sul telefono funziona anche senza rete.'}</span></div><button class="btn small ghost" data-act="install" ${isStandalone() ? 'disabled' : ''}>Installa</button></div>
+      <div class="setting"><div class="grow"><b>Nome</b><span>Facoltativo, resta sul dispositivo</span></div><button class="btn small ghost" data-act="rename">Cambia</button></div>
+      <div class="setting"><div class="grow"><b>Azzera i progressi</b><span>Cancella tutto da questo dispositivo</span></div><button class="btn small err" data-act="reset">Azzera</button></div></div></section>
+    <section class="sec"><p class="eyebrow">Informazioni</p><div class="card stack"><p class="note">Hermeneus funziona tutto sul tuo dispositivo: nessun account, nessuna raccolta di dati, nessuna intelligenza artificiale. Pronuncia erasmiana della scuola italiana, letta dalla sintesi vocale del dispositivo. Caratteri: Gentium Plus, GFS Didot, Rubik (licenza SIL OFL 1.1). Dizionario online facoltativo: Wikizionario (CC BY-SA).</p>
+    <p class="note">${E.LEX.length} lemmi · ${UNITS.length} unità · ${FLAT.length} lezioni · ${BANK.length} frasi verificate · ${B.SENTENTIAE.length} massime.</p></div></section>`;
 }
-
 /* ---------- Benvenuto e posizione nel percorso ---------- */
 let onb = null;
 function placementList(selId, actName) {
-  return `<button class="choice" data-act="${actName}" data-u="" aria-pressed="${selId === ''}"><span class="num" style="--gc:var(--good)">0</span><span><b>Comincio da zero</b><span>Partiamo dall’alfabeto</span></span></button>
-    ${UNITS.slice(0, -1).map((u, i) => `<button class="choice ${TOPIC[u.id] ? GROUPS[TOPIC[u.id].group].color : ''}" data-act="${actName}" data-u="${u.id}" aria-pressed="${selId === u.id}"><span class="num">${i + 1}</span><span><b>Ho studiato fino a: ${esc(u.title)}</b><span>${i ? `Si aprono le unità 1–${i + 1}` : 'Si apre l’unità 1'}; si riparte da «${esc(UNITS[i + 1].title)}»</span></span></button>`).join('')}`;
+  return `<div class="choices"><button class="choice" data-act="${actName}" data-u="" aria-pressed="${selId === ''}"><span class="num" style="--gc:var(--good)">0</span><span class="grow"><b>Comincio da zero</b><span>Partiamo dall’alfabeto</span></span></button>
+    ${UNITS.slice(0, -1).map((u, i) => `<button class="choice ${TOPIC[u.id] ? GROUPS[TOPIC[u.id].group].color : ''}" data-act="${actName}" data-u="${u.id}" aria-pressed="${selId === u.id}"><span class="num">${i + 1}</span><span class="grow"><b>Fino a: ${esc(u.title)}</b><span>${i ? `Si aprono le unità 1–${i + 1}` : 'Si apre l’unità 1'}; si riparte da «${esc(UNITS[i + 1].title)}»</span></span></button>`).join('')}</div>`;
 }
 function drawOnb() {
   onb = onb || { step: 0, name: S.name || '', place: '', goal: S.goal, accents: S.settings.accents };
   const steps = `<div class="steps" aria-hidden="true">${[0, 1, 2].map((i) => `<i class="${i <= onb.step ? 'on' : ''}"></i>`).join('')}</div>`;
   let h = `<div class="onb">${steps}`;
   if (onb.step === 0) {
-    h += `<div style="text-align:center">${ermes('cheer', 150)}</div><h1 style="text-align:center">Χαῖρε! Io sono Ermes.</h1><p style="text-align:center">Il messaggero degli dèi, protettore dei viaggiatori e degli interpreti. Ti guido nel greco, una lezione alla volta: dieci minuti al giorno bastano.</p>
-      <section class="card"><label for="nm"><b>Come ti chiami?</b> <span class="muted">(facoltativo)</span></label><input id="nm" class="typed" style="margin-top:8px" maxlength="24" autocomplete="off" value="${esc(onb.name)}" placeholder="Nome o soprannome"><p class="note" style="margin-top:10px">Tutto resta su questo dispositivo: nessun account, nessun dato inviato a nessuno.</p></section>
-      <button class="btn block" data-act="onbNext">Cominciamo</button>
-      <button class="linkbtn" style="margin-top:14px" data-act="restoreSheet">Hai già usato Hermeneus? Ripristina i progressi</button>`;
+    h += `<div class="onb-hero">${ermes('cheer', 150)}<h1><span lang="grc">Χαῖρε!</span> Io sono Ermes.</h1><p>Il messaggero degli dèi, protettore dei viaggiatori e degli interpreti. Ti guido nel greco, una lezione alla volta: dieci minuti al giorno bastano.</p></div>
+      <div class="card field"><label for="nm">Come ti chiami? <span class="muted">(facoltativo)</span></label><input id="nm" class="typed" maxlength="24" autocomplete="off" value="${esc(onb.name)}" placeholder="Nome o soprannome"><p class="note">Tutto resta su questo dispositivo: nessun account, nessun dato inviato a nessuno.</p></div>
+      <button class="btn big block" data-act="onbNext">Cominciamo</button>
+      <button class="linkbtn" data-act="restoreSheet">Hai già usato Hermeneus? Ripristina i progressi</button>`;
   } else if (onb.step === 1) {
-    h += say('Dove sei arrivato con il programma di classe? Apro le unità che hai già studiato; le altre si sbloccano facendo le lezioni.', 'think', 80) + placementList(onb.place, 'onbPlace') + `<button class="btn block" style="margin-top:8px" data-act="onbNext">Avanti</button>`;
+    h += say('Dove sei arrivato con il programma di classe? Apro le unità che hai già studiato; le altre si sbloccano facendo le lezioni.', 'think', 76) + placementList(onb.place, 'onbPlace') + `<button class="btn big block" data-act="onbNext">Avanti</button>`;
   } else {
-    h += say('Ultime due scelte. Potrai cambiarle quando vuoi nel profilo.', 'happy', 80) + `<section class="card"><div class="setting"><div><b>Obiettivo giornaliero</b><span>XP al giorno (una lezione vale circa 60 XP)</span></div><div class="seg">${[[30, 'Calmo'], [50, 'Normale'], [80, 'Serio'], [120, 'Intenso']].map(([g, l]) => `<button data-act="onbGoal" data-v="${g}" aria-pressed="${onb.goal === g}">${l}</button>`).join('')}</div></div>
-      <div class="setting"><div><b>Accenti facoltativi</b><span>All’inizio è più sereno: gli errori d’accento vengono segnalati ma non contano.</span></div><label class="switch"><input type="checkbox" id="onbAcc" ${onb.accents === 'lenient' ? 'checked' : ''} aria-label="Accenti facoltativi"><i></i></label></div></section>
-      <button class="btn block" data-act="onbDone">Iniziamo il viaggio</button>`;
+    h += say('Ultime due scelte. Potrai cambiarle quando vuoi nel profilo.', 'happy', 76) + `<div class="card flush"><div class="setting wrap"><div class="grow"><b>Obiettivo giornaliero</b><span>Una lezione vale circa 60 XP</span></div><div class="seg">${[[30, 'Calmo'], [50, 'Normale'], [80, 'Serio'], [120, 'Intenso']].map(([g, l]) => `<button data-act="onbGoal" data-v="${g}" aria-pressed="${onb.goal === g}">${l}</button>`).join('')}</div></div>
+      <div class="setting"><div class="grow"><b>Accenti facoltativi</b><span>All’inizio è più sereno: gli errori d’accento vengono segnalati ma non contano.</span></div><label class="switch"><input type="checkbox" id="onbAcc" ${onb.accents === 'lenient' ? 'checked' : ''} aria-label="Accenti facoltativi"><i></i></label></div></div>
+      <button class="btn big block" data-act="onbDone">Iniziamo il viaggio</button>`;
   }
-  h += `${onb.step ? '<button class="btn ghost block" style="margin-top:12px" data-act="onbBack">Indietro</button>' : ''}</div>`;
+  h += `${onb.step ? '<button class="btn ghost block" data-act="onbBack">Indietro</button>' : ''}</div>`;
   $('#app').innerHTML = h;
   window.scrollTo(0, 0);
 }
@@ -1389,7 +1405,6 @@ function placementSheet() {
   const cu = FLAT[currentIdx()];
   openSheet('Posizione nel percorso', say(`Ora sei a «${esc(cu.unit.title)}». Scegli fin dove hai studiato in classe: le unità fino a lì si aprono, le stelle già guadagnate restano.`, 'think', 64) + placementList(null, 'setPlace'));
 }
-
 /* ---------- Installazione ---------- */
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (ev) => { ev.preventDefault(); deferredPrompt = ev; });
@@ -1398,11 +1413,9 @@ const isStandalone = () => matchMedia('(display-mode: standalone)').matches || n
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function installFlow() {
   if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.finally(() => { deferredPrompt = null; render(); }); return; }
-  const sm = (ic) => ic.replace('<svg', '<svg style="width:18px;height:18px;vertical-align:-3px"');
-  if (isIOS()) { showModal(`<div style="text-align:center">${ermes('happy', 80)}</div><h2>Installa su iPhone o iPad</h2><ol><li>Apri questa pagina con <b>Safari</b>.</li><li>Tocca <b>Condividi</b> ${sm(I.share)} in basso.</li><li>Scegli <b>Aggiungi alla schermata Home</b> ${sm(I.plus)}.</li><li>Tocca <b>Aggiungi</b>: l’icona di Hermeneus comparirà tra le app.</li></ol><button class="btn block" data-act="closeModal">Ho capito</button>`); return; }
-  showModal(`<div style="text-align:center">${ermes('happy', 80)}</div><h2>Installa l’app</h2><p>Su Android apri il menu del browser (⋮) e scegli <b>Installa app</b> o <b>Aggiungi a schermata Home</b>. Sul computer usa l’icona di installazione nella barra dell’indirizzo.</p>${SITE ? '' : '<p class="note">L’installazione richiede la versione pubblicata sul sito; questo file autonomo si apre comunque in qualunque browser, anche senza rete.</p>'}<button class="btn block" data-act="closeModal">Ho capito</button>`);
+  if (isIOS()) { showModal(`${ermes('happy', 80)}<h2>Installa su iPhone o iPad</h2><ol><li>Apri questa pagina con <b>Safari</b>.</li><li>Tocca <b>Condividi</b> in basso.</li><li>Scegli <b>Aggiungi alla schermata Home</b>.</li><li>Tocca <b>Aggiungi</b>: l’icona di Hermeneus comparirà tra le app.</li></ol><button class="btn block" data-act="closeModal">Ho capito</button>`); return; }
+  showModal(`${ermes('happy', 80)}<h2>Installa l’app</h2><p>Su Android apri il menu del browser (⋮) e scegli <b>Installa app</b> o <b>Aggiungi a schermata Home</b>. Sul computer usa l’icona di installazione nella barra dell’indirizzo.</p>${SITE ? '' : '<p class="note">L’installazione richiede la versione pubblicata sul sito; questo file si apre comunque in qualunque browser, anche senza rete.</p>'}<button class="btn block" data-act="closeModal">Ho capito</button>`);
 }
-
 /* ---------- Azioni ---------- */
 function hint() {
   const s = SES.cur.it.s;
@@ -1442,7 +1455,7 @@ const ACT = {
   mL: (el) => { const c = SES.cur; if (c.answered || el.disabled) return; $$('[data-act="mL"]').forEach((b) => b.classList.remove('sel')); el.classList.add('sel'); c.selL = +el.dataset.i; sfx.tap(); matchStep(); },
   mR: (el) => { const c = SES.cur; if (c.answered || el.disabled) return; $$('[data-act="mR"]').forEach((b) => b.classList.remove('sel')); el.classList.add('sel'); c.selR = +el.dataset.i; sfx.tap(); matchStep(); },
   self: (el) => { const c = SES.cur; const d = c.selfData; c.answered = false; finalize({ ok: el.dataset.v === '1', sol: d.sol, given: d.ans, typed: true, self: true }); },
-  toggleInput: (el) => { const c = SES.cur; if (c.answered) return; c.inputMode = c.inputMode === 'tiles' ? 'keys' : 'tiles'; c.chosen = []; $('#ansWrap').innerHTML = answerArea(c.it); el.innerHTML = c.inputMode === 'tiles' ? I.keys + 'Scrivi' : I.tiles + 'Tessere'; refreshAnswer(); const t = $('#typed'); if (t) t.focus({ preventScroll: true }); },
+  toggleInput: (el) => { const c = SES.cur; if (c.answered) return; c.inputMode = c.inputMode === 'tiles' ? 'keys' : 'tiles'; c.chosen = []; $('#ansWrap').innerHTML = answerArea(c.it); el.outerHTML = inputToggle(); refreshAnswer(); const t = $('#typed'); if (t) t.focus({ preventScroll: true }); },
   word: (el) => { const it = SES && SES.cur && SES.cur.it; const s = it && it.s; if (!s) return; const tok = tokensOf(s)[+el.dataset.i]; if (tok) wordPop(el, tok); },
   speak: () => speak(SES.cur.it.s.gr),
   speakSent: () => speak(SES.cur.it.s.gr),
@@ -1518,6 +1531,7 @@ document.addEventListener('click', (ev) => {
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target;
+  if (t.id === 'pracUnit') { S.prac.unit = t.value; save(); return; }
   if (!t.dataset.set) return;
   const k = t.dataset.set;
   if (k === 'accents') S.settings.accents = t.checked ? 'lenient' : 'strict';
@@ -1555,7 +1569,9 @@ function updateJump() {
   if (!j || !n) return;
   const r = n.getBoundingClientRect();
   const off = r.bottom < 70 || r.top > innerHeight - 90;
-  j.hidden = !off;
+  // in cima c'è già la scheda «Continua»: il pulsante serve solo dopo aver scorso il percorso
+  const res = $('.resume');
+  j.hidden = !off || (res && res.getBoundingClientRect().bottom > 0);
   j.classList.toggle('up', r.bottom < 70);
 }
 window.addEventListener('scroll', updateJump, { passive: true });
