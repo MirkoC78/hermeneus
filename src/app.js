@@ -713,14 +713,17 @@ const DIA = [['\u0313', '᾿', 'spirito dolce'], ['\u0314', '῾', 'spirito aspr
 // prima volta con la tastiera: come si compongono lettera e segni
 function kbCoach() {
   if (S.coach.kbd) return '';
-  return `<div class="kb-coach" id="kbCoach" role="note"><b>Come si scrive con questa tastiera</b><ol><li>Tocca la lettera: <span lang="grc">α</span>.</li><li>Poi tocca i segni: spirito, accento e iota si aggiungono alla lettera appena scritta (<span lang="grc">α</span> + ᾿ + ´ = <span lang="grc">ἄ</span>).</li><li>⌫ cancella l’ultima lettera con i suoi segni. Puoi anche usare una tastiera greca già installata.</li></ol><button class="linkbtn" data-act="kbCoachOk">Ho capito</button></div>`;
+  return `<div class="kb-coach" id="kbCoach" role="note"><b>Come si scrive con questa tastiera</b><ol><li>Tocca la lettera: <span lang="grc">α</span>.</li><li>Poi tocca i segni: spirito, accento e iota si aggiungono alla lettera appena scritta (<span lang="grc">α</span> + ᾿ + ´ = <span lang="grc">ἄ</span>).</li><li>⌫ cancella l’ultima lettera con i suoi segni. Dal computer puoi scrivere anche con la tastiera fisica.</li></ol><button class="linkbtn" data-act="kbCoachOk">Ho capito</button></div>`;
 }
-function keyboardHtml() {
-  return `${kbCoach()}<div class="kb" role="group" aria-label="Tastiera greca">${KB_ROWS.map((r) => `<div class="kb-row">${r.map((l) => `<button type="button" data-act="kb" data-k="${l}" aria-label="${l}">${l}</button>`).join('')}</div>`).join('')}
+function keyboardHtml(target = 'typed', hint = true) {
+  return `${kbCoach()}<div class="kb" data-for="${target}" role="group" aria-label="Tastiera greca">${KB_ROWS.map((r) => `<div class="kb-row">${r.map((l) => `<button type="button" data-act="kb" data-k="${l}" aria-label="${l}">${l}</button>`).join('')}</div>`).join('')}
     <div class="kb-row">${DIA.map(([m, s, n]) => `<button type="button" class="dia" data-act="kbd" data-m="${m}" aria-label="${n}">${s}</button>`).join('')}<button type="button" class="del" data-act="kbx" aria-label="Cancella">⌫</button></div>
     <div class="kb-row"><button type="button" class="wide" data-act="kb" data-k=" " aria-label="Spazio">spazio</button><button type="button" class="wide" data-act="kbcase" aria-label="Maiuscola">Maiusc.</button></div></div>
-    <p class="kb-hint">Dal computer: lettere latine → greche (h = η, w = ω, q = θ, c = ξ, y = ψ, x = χ, f = φ); ) dolce, ( aspro, / acuto, \\ grave, = circonflesso, | iota sottoscritto.</p>`;
+    ${hint ? `<p class="kb-hint">Dal computer: lettere latine → greche (h = η, w = ω, q = θ, c = ξ, y = ψ, x = χ, f = φ); ) dolce, ( aspro, / acuto, \\ grave, = circonflesso, | iota sottoscritto.</p>` : ''}`;
 }
+// campo collegato alla tastiera del pulsante premuto
+function kbField(el) { const k = el && el.closest('[data-for]'); return $('#' + (k ? k.dataset.for : 'typed')); }
+function kbChanged(t) { if (t.id !== 'typed') return; const b = $('#checkBtn'); if (b) b.disabled = !t.value.trim(); }
 let kbUpper = false;
 const LAT = { a: 'α', b: 'β', g: 'γ', d: 'δ', e: 'ε', z: 'ζ', h: 'η', q: 'θ', i: 'ι', k: 'κ', l: 'λ', m: 'μ', n: 'ν', c: 'ξ', o: 'ο', p: 'π', r: 'ρ', s: 'σ', t: 'τ', u: 'υ', f: 'φ', x: 'χ', y: 'ψ', w: 'ω', j: 'ς', v: 'ς' };
 const LAT_DIA = { ')': '\u0313', '(': '\u0314', '/': '\u0301', '\\': '\u0300', '=': '\u0342', '|': '\u0345', '+': '\u0308' };
@@ -1324,8 +1327,18 @@ function viewWords() {
   return `<header class="page-head"><h1>Lessico</h1><p class="lede">${learned} parole imparate su ${q.all.length} delle lezioni raggiunte nel percorso.</p></header>
     <section class="sec"><p class="eyebrow">Ripasso di oggi</p><div class="card"><p class="note">${nDue ? `${q.due.length} da ripassare · ${q.fresh.length} nuove` : 'Per oggi hai finito: torna domani.'}</p><div id="flash" class="flash"></div></div></section>
     <section class="sec"><p class="eyebrow">Cerca una forma</p><div class="card stack"><p class="note">Scrivi una parola greca, anche senza accenti: il motore la analizza.</p>
-    <div class="search"><label class="sr" for="q">Forma greca</label><input id="q" class="gr" lang="grc" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="es. λύσει"><button class="btn" data-act="search" aria-label="Cerca">${I.lens}</button></div>
+    <div class="search"><label class="sr" for="q">Forma greca</label><input id="q" class="gr" lang="grc" ${qKbOpen ? 'inputmode="none" ' : ''}autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="es. λύσει"><button class="btn" data-act="search" aria-label="Cerca">${I.lens}</button></div>
+    <button class="linkbtn" id="qKbBtn" data-act="qKbd" aria-controls="qKb" aria-expanded="${qKbOpen}">${qKbOpen ? 'Nascondi la tastiera greca' : 'Mostra la tastiera greca'}</button>
+    <div id="qKb" class="stack"${qKbOpen ? '' : ' hidden'}>${keyboardHtml('q', false)}</div>
     <p class="note">Dal computer puoi usare le lettere latine (h = η, w = ω…) e i segni ) ( / \\ = |.</p><div id="results"></div></div></section>`;
+}
+// tastiera della ricerca: aperta per default sui telefoni, dove quella di sistema non ha il greco politonico
+let qKbOpen = matchMedia('(pointer: coarse)').matches;
+function syncQKbd() {
+  const box = $('#qKb'), btn = $('#qKbBtn'), q = $('#q');
+  if (box) box.hidden = !qKbOpen;
+  if (btn) { btn.textContent = qKbOpen ? 'Nascondi la tastiera greca' : 'Mostra la tastiera greca'; btn.setAttribute('aria-expanded', qKbOpen); }
+  if (q) { if (qKbOpen) q.setAttribute('inputmode', 'none'); else q.removeAttribute('inputmode'); }
 }
 let flashCur = null;
 function bindWords() {
@@ -1566,10 +1579,11 @@ const ACT = {
   paradigm: (el) => { closePop(); paradigmSheet(E.LEX[+el.dataset.e]); },
   closeSheet: () => closeSheet(),
   closeModal: () => closeModal(),
-  kb: (el) => { const t = $('#typed'); if (!t || t.readOnly) return; insertText(t, kbUpper ? el.dataset.k.toUpperCase() : el.dataset.k); kbUpper = false; const b = $('#checkBtn'); if (b) b.disabled = !t.value.trim(); },
-  kbd: (el) => { const t = $('#typed'); if (!t || t.readOnly) return; applyMark(t, el.dataset.m); },
-  kbx: () => { const t = $('#typed'); if (!t || t.readOnly) return; const a = t.selectionStart ?? t.value.length; const chars = [...t.value.slice(0, a)]; chars.pop(); t.value = chars.join('') + t.value.slice(a); normalizeTyped(t, chars.join('').length); const b = $('#checkBtn'); if (b) b.disabled = !t.value.trim(); },
-  kbCoachOk: () => { S.coach.kbd = true; save(); const c = $('#kbCoach'); if (c) c.remove(); const t = $('#typed'); if (t) t.focus({ preventScroll: true }); },
+  kb: (el) => { const t = kbField(el); if (!t || t.readOnly) return; insertText(t, kbUpper ? el.dataset.k.toUpperCase() : el.dataset.k); kbUpper = false; kbChanged(t); },
+  kbd: (el) => { const t = kbField(el); if (!t || t.readOnly) return; applyMark(t, el.dataset.m); },
+  kbx: (el) => { const t = kbField(el); if (!t || t.readOnly) return; const a = t.selectionStart ?? t.value.length; const chars = [...t.value.slice(0, a)]; chars.pop(); t.value = chars.join('') + t.value.slice(a); normalizeTyped(t, chars.join('').length); kbChanged(t); },
+  kbCoachOk: () => { S.coach.kbd = true; save(); const c = $('#kbCoach'); if (c) c.remove(); const t = $('#typed') || $('#q'); if (t) t.focus({ preventScroll: true }); },
+  qKbd: () => { qKbOpen = !qKbOpen; syncQKbd(); const q = $('#q'); if (q) q.focus({ preventScroll: true }); },
   kbcase: () => { kbUpper = !kbUpper; toast(kbUpper ? 'Prossima lettera maiuscola.' : 'Minuscole.'); },
   placement: () => placementSheet(),
   setPlace: (el) => {

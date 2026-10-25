@@ -1,10 +1,10 @@
-/* Hermeneus — service worker: tutto in cache per l'uso offline. Versione de6a585e61.
+/* Hermeneus — service worker: tutto in cache per l'uso offline. Versione 0f87ec21d5.
    Le cache hanno un nome legato alla cartella di installazione: all'aggiornamento si cancellano solo
    le versioni precedenti di questa installazione, mai le cache di altre app (o di altre copie di Hermeneus)
    ospitate sullo stesso sito. */
 const SCOPE = self.registration.scope;
 const PREFIX = 'hermeneus@' + SCOPE + '@';
-const CACHE = PREFIX + 'de6a585e61';
+const CACHE = PREFIX + '0f87ec21d5';
 // nome usato dalle versioni precedenti, senza cartella: si riconosce come nostro se contiene la nostra pagina
 const LEGACY = /^hermeneus-[0-9a-f]{10}$/;
 const ASSETS = ["./","index.html","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","icons/apple-touch-icon.png","icons/favicon-32.png"];
