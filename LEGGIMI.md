@@ -13,6 +13,7 @@ usare solo le parole già incontrate.
 
 - `dist/hermeneus.html`: file unico autonomo (caratteri incorporati), si apre in qualunque browser, anche offline.
 - `dist/sito/`: pacchetto da pubblicare su un hosting statico HTTPS (index.html, manifest, service worker, icone, licenze).
+- `tools/pubblica.sh`: invia il progetto su GitHub e copia `dist/sito/` nel ramo `gh-pages`, da cui GitHub Pages serve il sito. Prima ricostruire con `node build.js`, eseguire i test e fare il commit.
 - `campione-frasi.md`: 50 frasi generate a campione, con traduzioni accettate.
 
 ## Grafica

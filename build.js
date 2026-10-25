@@ -124,6 +124,8 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(cached(req).then((r) => r || fetch(req).then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; })));
 });
 `);
+// GitHub Pages: i file si servono così come sono, senza elaborazione Jekyll
+fs.writeFileSync(path.join(SITE, '.nojekyll'), '');
 fs.writeFileSync(path.join(SITE, 'LEGGIMI.txt'), `HERMENEUS — pacchetto per la pubblicazione (versione ${version})
 
 Contenuto
