@@ -250,7 +250,7 @@ const BANK = [
 /* Guida al metodo di costruzione */
 const METHOD = [
   { h: 'Leggi tutta la frase', p: 'Prima di tradurre leggi il periodo per intero e guarda la punteggiatura: la virgola e il punto in alto (·) separano spesso le proposizioni; il punto e virgola greco (;) chiude una domanda.' },
-  { h: 'Trova i verbi', p: 'Cerca i verbi di modo finito: tanti verbi, tante proposizioni. Riconosci la principale: non è introdotta da congiunzioni (ὅτι, ἵνα, ἐπεί…) né da un relativo (ὅς, ἥ, ὅ).' },
+  { h: 'Trova i verbi', p: 'Cerca i verbi di modo finito (indicativo, congiuntivo, ottativo, imperativo): come primo orientamento, ognuno regge una proposizione. Infiniti e participi possono formare proposizioni implicite (vedi il passo «Attento a participi e infiniti»). Riconosci la principale: non è introdotta da congiunzioni (ὅτι, ἵνα, ἐπεί…) né da un relativo (ὅς, ἥ, ὅ).' },
   { h: 'Analizza il verbo', p: 'Stabilisci persona, numero, tempo, modo e diatesi. Un aumento (ἐ-, η-, ω-) indica un tempo storico all’indicativo; un σ prima della desinenza fa pensare al futuro o all’aoristo primo.' },
   { h: 'Cerca il soggetto', p: 'Cerca un nominativo che concordi con il verbo. Ricorda: un neutro plurale vuole il verbo al singolare. Se il nominativo manca, il soggetto è nella desinenza.' },
   { h: 'Segui gli articoli', p: 'L’articolo annuncia caso, numero e genere del nome che lo segue: ciò che sta fra articolo e nome è un attributo (posizione attributiva).' },

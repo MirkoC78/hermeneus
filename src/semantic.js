@@ -132,7 +132,8 @@ const ADJS = `
 /* VERBI: la: lemma; it: infiniti italiani; s: classi del soggetto; o: classi dell'oggetto (=lemma = solo quel nome);
    oc: caso dell'oggetto (acc|gen|dat); oit: preposizione italiana dell'oggetto (a, di); d: classi del dativo di termine;
    pp: complementi ammessi { loc, to, from } con le classi; req: complemento obbligatorio; pass: ammette il passivo;
-   inf: verbo servile con infinito; say: verbo dichiarativo (proposizione infinitiva) */
+   inf: verbo servile con infinito; say: verbo dichiarativo (proposizione infinitiva);
+   op: verbo di opinione, che in italiano vuole il congiuntivo nella completiva («ritengono che la figlia ascolti») */
 const VERBS = [
   { la: 'λύω', it: ['liberare', 'slegare'], s: 'H', o: 'H A !god', pass: 1 },
   { la: 'παιδεύω', it: ['educare'], s: 'tch rul fam wise', o: 'kid mil', pass: 1 },
@@ -177,7 +178,7 @@ const VERBS = [
   { la: 'βούλομαι', it: ['volere'], s: 'H', inf: 1 },
   { la: 'ἐθέλω', it: ['volere'], s: 'H', inf: 1 },
   { la: 'δύναμαι', it: ['potere'], s: 'H', inf: 1 },
-  { la: 'νομίζω', it: ['ritenere', 'credere'], s: 'H', say: 1 },
+  { la: 'νομίζω', it: ['ritenere', 'credere'], s: 'H', say: 1, op: 1 },
 ];
 
 root.HERM_SEM = { NOUNS, ADJS, VERBS };

@@ -1,4 +1,4 @@
-HERMENEUS — pacchetto per la pubblicazione (versione 60f2ae423a)
+HERMENEUS — pacchetto per la pubblicazione (versione de6a585e61)
 
 Contenuto
   index.html             l'applicazione completa (caratteri incorporati)

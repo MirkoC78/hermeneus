@@ -21,7 +21,7 @@ Seme 20261023; per ogni frase: greco, traduzioni accettate, argomento esercitato
    Fuggite.  
    _argomento esercitato: pres (richiesto: cong); argomenti necessari: pres_
 7. **Οἱ ναῦται νομίζουσι τοὺς πολίτας τὰς κώμας φυλάττειν.**  
-   I marinai ritengono che i cittadini custodiscono i villaggi. · I marinai credono che i cittadini custodiscono i villaggi. · I marinai ritengono che i cittadini sorvegliano i villaggi. · I marinai credono che i cittadini sorvegliano i villaggi.  
+   I marinai ritengono che i cittadini custodiscano i villaggi. · I marinai credono che i cittadini custodiscano i villaggi. · I marinai ritengono che i cittadini sorveglino i villaggi. · I marinai credono che i cittadini sorveglino i villaggi.  
    _argomento esercitato: inf; argomenti necessari: art, d1, pres, inf_
 8. **Οἱ Ἕλληνες τὰς μικρὰς πόλεις λαμβάνουσιν.**  
    I Greci prendono le città piccole.  
@@ -117,7 +117,7 @@ Seme 20261023; per ogni frase: greco, traduzioni accettate, argomento esercitato
    I medici mostrano la verità alle dee.  
    _argomento esercitato: mi; argomenti necessari: art, d1, pres, d2, mi_
 39. **Οἱ δεσπόται νομίζουσι τοὺς στρατιώτας τὸν μαθητὴν ἀποκτείνειν.**  
-   I padroni ritengono che i soldati uccidono l'allievo. · I padroni credono che i soldati uccidono l'allievo. · I padroni ritengono che i soldati uccidono il discepolo. · I padroni credono che i soldati uccidono il discepolo.  
+   I padroni ritengono che i soldati uccidano l'allievo. · I padroni credono che i soldati uccidano l'allievo. · I padroni ritengono che i soldati uccidano il discepolo. · I padroni credono che i soldati uccidano il discepolo.  
    _argomento esercitato: inf; argomenti necessari: art, d1, pres, inf_
 40. **Μένω.**  
    Rimango. · Resto.  

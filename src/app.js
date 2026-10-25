@@ -139,26 +139,38 @@ const say = (text, mood = 'happy', size = 76) => `<div class="say">${ermes(mood,
 
 /* ---------- Stato ---------- */
 const KEY = 'hermeneus.v1';
-const DEFAULT = () => ({
-  v: 2, onboarded: false, name: '', topics: [], goal: 50, xp: 0, days: {}, streak: 0, lastDay: null, shields: 0,
-  mastery: {}, mistakes: [], badges: {}, vocab: {}, recent: [], genSaved: [], backupAt: 0, savedAt: 0,
-  course: { unlocked: 0, stars: {}, times: {} },
-  prac: { unit: null, type: 'misto', wide: false, level: 'media' },
-  stats: { answered: 0, correct: 0, sessions: 0, perfect: 0, forms: 0, typedOK: 0, translated: 0, genSeen: 0, types: {}, clearedReview: 0, accentOK: 0, lessons: 0 },
-  settings: { sound: true, voice: true, input: 'tiles', accents: 'lenient', theme: 'auto', gen: true, online: true },
-});
+const ST = window.HermState;
+const DEFAULT = ST.defaults;
+// copie originali dei salvataggi che è stato necessario riparare (le ultime tre)
+const ORIGINALS = KEY + '.originali';
 let S = DEFAULT();
+const stateCtx = () => ({ lessonIds: LESSON_IDS(), lexCount: E.LEX.length });
+function originals() { try { return JSON.parse(localStorage.getItem(ORIGINALS) || '[]'); } catch (e) { return []; } }
+function keepOriginal(raw, problems) {
+  try { localStorage.setItem(ORIGINALS, JSON.stringify(originals().concat([{ at: Date.now(), problems, raw }]).slice(-3))); } catch (e) { /* ignora */ }
+}
+// dalla versione 1: gli argomenti scelti diventano unità aperte del percorso
+function migrate() {
+  if (S.v !== 2 && S.onboarded) placeAt(ORDER.filter((t) => S.topics.includes(t)).pop() || null);
+  S.v = 2;
+  syncTopics();
+}
+// un salvataggio guasto non blocca l'avvio: i campi sbagliati tornano ai valori iniziali e l'originale si conserva
 function load() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return;
-    const d = JSON.parse(raw);
-    const def = DEFAULT();
-    S = Object.assign(def, d, { stats: Object.assign(def.stats, d.stats || {}), settings: Object.assign(def.settings, d.settings || {}), course: Object.assign(def.course, d.course || {}), prac: Object.assign(def.prac, d.prac || {}) });
-    // dalla versione 1: gli argomenti scelti diventano unità aperte del percorso
-    if (d.v !== 2 && d.onboarded) { placeAt(ORDER.filter((t) => (d.topics || []).includes(t)).pop() || null); S.v = 2; }
-    syncTopics();
-  } catch (e) { /* archiviazione non disponibile */ }
+  let raw = null;
+  try { raw = localStorage.getItem(KEY); } catch (e) { return; } // archiviazione non disponibile
+  if (!raw) return;
+  let d = null;
+  try { d = JSON.parse(raw); } catch (e) { /* illeggibile: lo dice il controllo */ }
+  const r = ST.check(d, stateCtx());
+  if (r.problems.length) {
+    keepOriginal(raw, r.problems);
+    toastLater(r.fatal ? 'Il salvataggio non si poteva leggere: ne ho conservato una copia (vedi Profilo).' : 'Il salvataggio aveva dati guasti: li ho riparati e ho conservato la copia originale (vedi Profilo).');
+  }
+  if (r.fatal) return;
+  S = r.state;
+  migrate();
+  if (r.problems.length) save();
 }
 let saveFailed = false;
 function save() { try { S.savedAt = Date.now(); localStorage.setItem(KEY, JSON.stringify(S)); saveFailed = false; } catch (e) { saveFailed = true; } }
@@ -343,6 +355,19 @@ const KIND = {
 const CHOICE = ['analizza', 'completa', 'lessico', 'alfabeto', 'accorda', 'lettera', 'accento'];
 function focusOfReq(req) { return req.slice().sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0]; }
 function formsUsable(e, T) { return e.forms.filter((f) => f.key !== 'lemma' && f.req.every((q) => T.has(q))); }
+// ricostruisce un esercizio su lettere, accenti, lettura o concordanza salvato fra gli errori
+function reviewItem(m) {
+  const d = m.d, options = shuffle(d.options.slice());
+  if (m.t === 'lettera') return { type: 'lettera', reverse: !!d.reverse, prompt: d.prompt, right: d.right, options, topic: 'alf' };
+  if (m.t === 'accento') return { type: 'accento', word: d.word, right: d.right, options, topic: 'alf' };
+  if (m.t === 'alfabeto') { const e = E.LEX[d.e]; return e ? { type: 'alfabeto', e, word: d.word, right: d.right, options, topic: 'alf' } : null; }
+  if (m.t === 'accorda') {
+    const e = E.LEX[d.e], n = E.LEX[d.n];
+    const noun = n && n.forms.find((f) => f.key === d.nk && f.f === d.nf);
+    return e && noun ? { type: 'accorda', mode: d.mode, noun, art: d.art, e, answer: d.answer, options, topic: d.mode === 'adj' ? 'agg1' : n.topic } : null;
+  }
+  return null;
+}
 function buildReview() {
   const T = sel();
   const items = [];
@@ -365,6 +390,7 @@ function buildReview() {
       const pool = e ? E.LEX.filter((x) => x.k === e.k && x !== e && x.m !== e.m && T.has(x.topic)) : [];
       if (e && pool.length >= 3) it = { type: 'lessico', e, options: shuffle([e, ...shuffle(pool).slice(0, 3)]), topic: e.topic };
     }
+    else if (m.k === 'x') it = reviewItem(m);
     if (it) { it.review = m; items.push(it); }
   }
   return shuffle(items);
@@ -408,7 +434,7 @@ function startPractice(mode) {
     // le traduzioni lavorano su tutto ciò che è aperto, con l'accento sull'ultima unità; il resto sull'argomento scelto
     const latest = S.topics[S.topics.length - 1];
     const unit = mode === 'alfabeto' ? 'alf' : ['gr_it', 'it_gr', 'nuove'].includes(mode) ? latest : p.unit && T.has(p.unit) ? p.unit : latest;
-    items = LS.buildPractice({ T, focus: unit, mix: MIXES[mode] || MIXES[p.type] || MIXES.misto, wide: p.wide, genShare: mode === 'nuove' ? 1 : 0.5, gen: S.settings.gen, avoid: S.recent, level: mode === 'alfabeto' ? null : LEVELS[p.level] });
+    items = LS.buildPractice({ T, focus: unit, mix: MIXES[mode] || MIXES[p.type] || MIXES.misto, wide: p.wide, vocab: vocabReached(), reached: reachedLessons(), genShare: mode === 'nuove' ? 1 : 0.5, gen: S.settings.gen, avoid: S.recent, level: mode === 'alfabeto' ? null : LEVELS[p.level] });
   }
   if (!items.length) { toast(mode === 'review' ? 'Nessun errore da ripassare: ottimo!' : 'Non ci sono ancora esercizi per questa scelta.'); return; }
   begin({ kind: 'practice', mode, items, title: 'Palestra', level: mode === 'review' ? null : S.prac.level });
@@ -418,15 +444,59 @@ function begin(o) {
   openOverlay();
   renderItem();
 }
+/* ---------- Strati: lezione, pannello, finestra di conferma ----------
+   Solo lo strato più in alto si può usare: quelli sotto diventano inerti (Tab e lettori di schermo non li raggiungono).
+   Alla chiusura il focus torna al comando che aveva aperto lo strato, anche se la pagina nel frattempo è stata ridisegnata. */
+const LAYERS = ['ov', 'sheet', 'modal'];
+const openers = {};
+let pendingBack = null;
+// selettore per ritrovare un comando dopo che la pagina è stata ridisegnata
+function describe(el) {
+  if (!el || !el.dataset || !el.dataset.act) return null;
+  return `[data-act="${el.dataset.act}"]` + ['u', 'v', 'i', 'e'].filter((k) => el.dataset[k] != null).map((k) => `[data-${k}="${CSS.escape(el.dataset[k])}"]`).join('');
+}
+function topLayer() { for (let i = LAYERS.length - 1; i >= 0; i--) { const el = $('#' + LAYERS[i]); if (el) return el; } return $('#app'); }
+function syncInert() {
+  const top = topLayer();
+  const app = $('#app'), skip = $('a.sr');
+  if (app) app.inert = app !== top;
+  if (skip) skip.inert = app !== top;
+  LAYERS.forEach((id) => { const el = $('#' + id); if (el) el.inert = el !== top; });
+}
+function layerOpened(id) {
+  if (!openers[id]) {
+    const a = document.activeElement;
+    openers[id] = a && a !== document.body && a.isConnected ? { el: a, sel: describe(a) } : pendingBack;
+  }
+  pendingBack = null;
+  syncInert();
+}
+function layerClosed(id) {
+  const back = openers[id];
+  delete openers[id];
+  syncInert();
+  pendingBack = back;
+  // si aspetta che la pagina sotto sia ridisegnata; se intanto si apre un altro strato, il ritorno passa a quello
+  setTimeout(() => {
+    if (pendingBack !== back) return;
+    pendingBack = null;
+    const top = topLayer(), now = document.activeElement;
+    if (now && now !== document.body && top.contains(now)) return;
+    let t = back && back.el.isConnected && top.contains(back.el) ? back.el : back && back.sel ? top.querySelector(back.sel) : null;
+    if (!t) t = top.id === 'app' ? $('#main') : top.querySelector('button, [href], input, textarea, select');
+    if (t) t.focus({ preventScroll: true });
+  }, 0);
+}
 function openOverlay() {
-  closeOverlay();
+  const old = $('#ov'); if (old) old.remove();
   const ov = document.createElement('div');
   ov.className = 'overlay'; ov.id = 'ov'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', SES.title || 'Lezione');
   ov.innerHTML = `<div class="ov-inner"><div class="ov-head"><button class="iconbtn" data-act="quit" aria-label="Chiudi la lezione">${I.close}</button><div class="progress" role="progressbar" aria-label="Avanzamento" aria-valuemin="0" aria-valuemax="100"><i></i></div><div class="combo" id="combo" aria-live="polite"></div></div><div class="ov-body" id="ovBody"></div></div><div class="ov-foot" id="ovFootWrap"><div class="foot-in" id="ovFoot"></div></div>`;
   document.body.appendChild(ov);
   document.body.style.overflow = 'hidden';
+  layerOpened('ov');
 }
-function closeOverlay() { const o = $('#ov'); if (o) o.remove(); document.body.style.overflow = ''; closePop(); }
+function closeOverlay() { const o = $('#ov'); if (o) { o.remove(); layerClosed('ov'); } document.body.style.overflow = ''; closePop(); }
 function setProgress() {
   const b = $('#ov .progress'); if (!b) return;
   const p = Math.min(1, SES.i / SES.items.length);
@@ -452,7 +522,9 @@ function renderItem() {
   $('#ovFootWrap').className = 'ov-foot';
   renderFoot();
   if (it.type === 'gr_it' || it.type === 'it_gr') refreshAnswer();
-  const t = $('#typed'); if (t && !matchMedia('(pointer: coarse)').matches) t.focus({ preventScroll: true });
+  const t = $('#typed');
+  if (t && !matchMedia('(pointer: coarse)').matches) t.focus({ preventScroll: true });
+  else if (it.type !== 'teach') { const h = $('#ovBody h2, #ovBody h3'); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); } }
   $('.ov-inner').scrollTop = 0;
 }
 // intestazione dell'esercizio: contrassegni, consegna ed eventuale lemma sotto
@@ -638,8 +710,13 @@ function matchStep() {
 /* ---------- Tastiera greca ---------- */
 const KB_ROWS = [['ς', 'ε', 'ρ', 'τ', 'υ', 'θ', 'ι', 'ο', 'π'], ['α', 'σ', 'δ', 'φ', 'γ', 'η', 'ξ', 'κ', 'λ'], ['ζ', 'χ', 'ψ', 'ω', 'β', 'ν', 'μ']];
 const DIA = [['\u0313', '᾿', 'spirito dolce'], ['\u0314', '῾', 'spirito aspro'], ['\u0301', '´', 'acuto'], ['\u0300', '`', 'grave'], ['\u0342', '῀', 'circonflesso'], ['\u0345', 'ͺ', 'iota sottoscritto'], ['\u0308', '¨', 'dieresi']];
+// prima volta con la tastiera: come si compongono lettera e segni
+function kbCoach() {
+  if (S.coach.kbd) return '';
+  return `<div class="kb-coach" id="kbCoach" role="note"><b>Come si scrive con questa tastiera</b><ol><li>Tocca la lettera: <span lang="grc">α</span>.</li><li>Poi tocca i segni: spirito, accento e iota si aggiungono alla lettera appena scritta (<span lang="grc">α</span> + ᾿ + ´ = <span lang="grc">ἄ</span>).</li><li>⌫ cancella l’ultima lettera con i suoi segni. Puoi anche usare una tastiera greca già installata.</li></ol><button class="linkbtn" data-act="kbCoachOk">Ho capito</button></div>`;
+}
 function keyboardHtml() {
-  return `<div class="kb" role="group" aria-label="Tastiera greca">${KB_ROWS.map((r) => `<div class="kb-row">${r.map((l) => `<button type="button" data-act="kb" data-k="${l}" aria-label="${l}">${l}</button>`).join('')}</div>`).join('')}
+  return `${kbCoach()}<div class="kb" role="group" aria-label="Tastiera greca">${KB_ROWS.map((r) => `<div class="kb-row">${r.map((l) => `<button type="button" data-act="kb" data-k="${l}" aria-label="${l}">${l}</button>`).join('')}</div>`).join('')}
     <div class="kb-row">${DIA.map(([m, s, n]) => `<button type="button" class="dia" data-act="kbd" data-m="${m}" aria-label="${n}">${s}</button>`).join('')}<button type="button" class="del" data-act="kbx" aria-label="Cancella">⌫</button></div>
     <div class="kb-row"><button type="button" class="wide" data-act="kb" data-k=" " aria-label="Spazio">spazio</button><button type="button" class="wide" data-act="kbcase" aria-label="Maiuscola">Maiusc.</button></div></div>
     <p class="kb-hint">Dal computer: lettere latine → greche (h = η, w = ω, q = θ, c = ξ, y = ψ, x = χ, f = φ); ) dolce, ( aspro, / acuto, \\ grave, = circonflesso, | iota sottoscritto.</p>`;
@@ -826,6 +903,10 @@ function addMistake(it) {
   if (it.type === 'gr_it' || it.type === 'it_gr') m = { k: 's', id: it.s.id, dir: it.type };
   else if (it.type === 'analizza' || it.type === 'scrivi') m = { k: 'f', e: E.LEX.indexOf(it.e), key: it.key, t: it.type };
   else if (it.type === 'lessico') m = { k: 'l', e: E.LEX.indexOf(it.e) };
+  else if (it.type === 'lettera') m = { k: 'x', t: 'lettera', d: { reverse: !!it.reverse, prompt: it.prompt, right: it.right, options: it.options } };
+  else if (it.type === 'accento') m = { k: 'x', t: 'accento', d: { word: it.word, right: it.right, options: it.options } };
+  else if (it.type === 'alfabeto') m = { k: 'x', t: 'alfabeto', d: { e: E.LEX.indexOf(it.e), word: it.word, right: it.right, options: it.options } };
+  else if (it.type === 'accorda') m = { k: 'x', t: 'accorda', d: { mode: it.mode, e: E.LEX.indexOf(it.e), n: E.LEX.indexOf(it.noun.e), nk: it.noun.key, nf: it.noun.f, art: it.art || '', answer: it.answer, options: it.options } };
   if (!m) return;
   const sig = (a) => JSON.stringify(Object.assign({}, a, { at: 0 }));
   S.mistakes = S.mistakes.filter((a) => sig(a) !== sig(m)).concat([Object.assign(m, { at: Date.now() })]).slice(-60);
@@ -842,7 +923,7 @@ function issuesHtml(res) {
   const by = (k) => iss.filter((x) => x.kind === k);
   let h = '';
   if (by('iota').length) h += `<p class="accent-warn"><b>Iota sottoscritto:</b> ${pairs(by('iota'))}. Fa parte della desinenza, per questo conta sempre.</p>`;
-  if (by('form').length) h += `<p class="accent-warn"><b>Forma della parola:</b> ${pairs(by('form'))}: ${formRule(by('form')[0].want)}.${lenient && res.ok ? ' In modalità graduale non conta come errore.' : ''}</p>`;
+  if (by('form').length) h += `<p class="accent-warn"><b>Forma della parola:</b> ${pairs(by('form'))}: ${formRule(by('form')[0].want)}.${lenient && res.ok ? ' In modalità graduale non conta come errore, ma vale qualche punto in meno.' : ''}</p>`;
   if (by('accent').length) h += `<p class="accent-warn"><b>Accenti e spiriti:</b> ${pairs(by('accent'))}.${lenient && res.ok ? ' Non conta come errore, ma vale qualche punto in meno.' : ''}</p>`;
   return h;
 }
@@ -926,8 +1007,15 @@ function endSession() { const y = SES ? SES.backY : 0; SES = null; closeOverlay(
 /* ---------- Ripetizione dilazionata ---------- */
 const BOX_DAYS = [0, 1, 2, 4, 8, 16];
 function srs(e, ok) { const v = S.vocab[e.id] || { box: 0, due: dayKey() }; v.box = ok ? Math.min(5, v.box + 1) : 0; v.due = addDays(dayKey(), BOX_DAYS[v.box]); S.vocab[e.id] = v; }
+// parole delle lezioni raggiunte: fino a quella attuale, più quelle già svolte (anche oltre, se si è tornati indietro)
+function reachedLessons() { return new Set(FLAT.filter((f) => f.idx <= currentIdx() || S.course.times[f.lesson.id]).map((f) => f.lesson.id)); }
+function vocabReached() {
+  const v = new Set();
+  for (const f of FLAT) if (f.idx <= currentIdx() || S.course.times[f.lesson.id]) for (const l of f.lesson.lemmas || []) v.add(G.nfc(l));
+  return v;
+}
 function vocabQueue() {
-  const known = LS.vocabForTopics(sel());
+  const known = vocabReached();
   const ents = E.LEX.filter((e) => ['n', 'v', 'a'].includes(e.k) && known.has(e.lemma));
   const due = ents.filter((e) => S.vocab[e.id] && S.vocab[e.id].due <= dayKey());
   const fresh = ents.filter((e) => !S.vocab[e.id]).slice(0, Math.max(0, 10 - due.length));
@@ -935,9 +1023,16 @@ function vocabQueue() {
 }
 
 /* ---------- Popover e fogli ---------- */
-function closePop() { const p = $('#pop'); if (p) p.remove(); }
+let popOpener = null;
+function closePop() {
+  const p = $('#pop'); if (!p) return;
+  const back = p.contains(document.activeElement) && popOpener;
+  p.remove();
+  if (back && back.isConnected) back.focus({ preventScroll: true });
+}
 function wordPop(btn, tok) {
   closePop();
+  popOpener = btn;
   const a = tok.a; if (!a) return;
   const e = a.e;
   const others = E.isReady() ? uniq(E.analyze(a.f).filter((x) => x !== a && x.key !== 'lemma').map((x) => `${x.e.head || x.e.lemma}: ${x.d}`)).filter((x) => x !== `${e.head || e.lemma}: ${a.d}`).slice(0, 4) : [];
@@ -955,27 +1050,32 @@ function wordPop(btn, tok) {
   p.style.left = left + 'px'; p.style.top = top + 'px';
 }
 function openSheet(title, html) {
-  closeSheet();
+  const old = $('#sheet'); if (old) old.remove();
   const bg = document.createElement('div');
   bg.className = 'sheet-bg'; bg.id = 'sheet';
   bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="grab"></div><div class="sheet-head"><h2>${esc(title)}</h2><button class="iconbtn" data-act="closeSheet" aria-label="Chiudi">${I.close}</button></div><div class="sheet-body">${html}</div></div>`;
   bg.addEventListener('click', (ev) => { if (ev.target === bg) closeSheet(); });
   document.body.appendChild(bg);
+  layerOpened('sheet');
   setTimeout(() => { const b = $('#sheet .iconbtn'); if (b) b.focus(); }, 30);
 }
-function closeSheet() { const s = $('#sheet'); if (s) s.remove(); }
+function closeSheet() { const s = $('#sheet'); if (s) { s.remove(); layerClosed('sheet'); } }
 function showModal(html) {
-  closeModal();
+  const old = $('#modal'); if (old) old.remove();
   const bg = document.createElement('div');
   bg.className = 'modal-bg'; bg.id = 'modal';
   bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true">${html}</div>`;
   bg.addEventListener('click', (ev) => { if (ev.target === bg) closeModal(); });
   document.body.appendChild(bg);
+  layerOpened('modal');
   setTimeout(() => { const b = $('#modal .btn:last-of-type') || $('#modal button'); if (b) b.focus(); }, 30);
 }
-function closeModal() { const m = $('#modal'); if (m) m.remove(); }
+function closeModal() { const m = $('#modal'); if (m) { m.remove(); layerClosed('modal'); } }
 let modalCb = null;
-function askConfirm(text, okLabel, cb, danger, mood = 'think') { modalCb = cb; showModal(`${ermes(mood, 88)}<h2>${esc(text)}</h2><div class="btns"><button class="btn ghost" data-act="closeModal">Annulla</button><button class="btn ${danger ? 'err' : ''}" data-act="modalOk">${esc(okLabel)}</button></div>`); }
+function askConfirm(text, okLabel, cb, danger, mood = 'think') { modalCb = cb; showModal(`${ermes(mood, 88)}<h2>${esc(text)}</h2><div class="btns"><button class="btn ghost" data-act="closeModal">Annulla</button><button class="btn ${danger ? 'err' : ''}" data-act="modalOk">${esc(okLabel)}</button></div>`);
+  // con un'azione distruttiva il focus parte da «Annulla», così Invio non conferma per sbaglio
+  if (danger) setTimeout(() => { const c = $('#modal [data-act="closeModal"]'); if (c) c.focus(); }, 40);
+}
 function askText(label, value, cb) { modalCb = cb; showModal(`<div class="field"><label for="mdIn">${esc(label)}</label><input id="mdIn" class="typed" maxlength="24" autocomplete="off" value="${esc(value)}"></div><div class="btns"><button class="btn ghost" data-act="closeModal">Annulla</button><button class="btn" data-act="modalOk">Salva</button></div>`); setTimeout(() => { const i = $('#mdIn'); if (i) i.focus(); }, 40); }
 function analysisSheet(s) {
   const toks = tokensOf(s);
@@ -985,7 +1085,8 @@ function analysisSheet(s) {
   const rows = toks.map((t, i) => { if (!t || t.p || !t.a) return ''; const al = alts(t); return `<tr><td class="gr" lang="grc">${esc(words[i])}</td><td>${gr(t.a.e.head || t.a.e.lemma)}<div class="note">${esc(t.a.e.m)}</div></td><td><b>${esc(t.a.d)}</b>${al.length ? `<div class="note">Da sola può essere anche: ${al.map(esc).join('; ')}</div>` : ''}</td></tr>`; }).join('');
   openSheet('Analisi della frase', `<p class="greek-line small" lang="grc">${esc(s.gr)}</p><p>${esc(s.it[0])}</p><div class="tbl-wrap"><table class="para wordtable"><thead><tr><th>Parola</th><th>Lemma</th><th>Analisi nella frase</th></tr></thead><tbody>${rows}</tbody></table></div>`);
 }
-function methodSheet() { openSheet('Il metodo di costruzione', `${say('Sette passi per non perdersi in nessuna frase greca.', 'happy', 64)}<ol>${B.METHOD.map((m) => `<li><b>${esc(m.h)}</b><p>${esc(m.p)}</p></li>`).join('')}</ol>`); }
+const STEPS = () => (['', 'Un passo', 'Due passi', 'Tre passi', 'Quattro passi', 'Cinque passi', 'Sei passi', 'Sette passi', 'Otto passi', 'Nove passi', 'Dieci passi'][B.METHOD.length] || B.METHOD.length + ' passi');
+function methodSheet() { openSheet('Il metodo di costruzione', `${say(STEPS() + ' per non perdersi in nessuna frase greca.', 'happy', 64)}<ol>${B.METHOD.map((m) => `<li><b>${esc(m.h)}</b><p>${esc(m.p)}</p></li>`).join('')}</ol>`); }
 
 /* ---------- Tabelle dal motore ---------- */
 const CASE_ROWS = [['nom', 'Nom.'], ['gen', 'Gen.'], ['dat', 'Dat.'], ['acc', 'Acc.'], ['voc', 'Voc.']];
@@ -1191,16 +1292,16 @@ function viewGym() {
       <div class="card custom">
         <div class="field"><label for="pracUnit">Argomento</label><div class="select"><select id="pracUnit">${units.map((u) => `<option value="${u.id}" ${u.id === unit ? 'selected' : ''}>${esc(u.title)}</option>`).join('')}</select></div></div>
         <div class="field"><span class="label" id="tyLab">Esercizi</span><div class="seg" role="group" aria-labelledby="tyLab">${[['misto', 'Misti'], ['frasi', 'Frasi'], ['forme', 'Forme'], ['parole', 'Parole']].map(([v, l]) => `<button data-act="pracType" data-v="${v}" aria-pressed="${p.type === v}">${l}</button>`).join('')}</div></div>
-        <div class="setting"><div class="grow"><b>Solo parole già incontrate</b><span>Spegni per usare tutto il lessico degli argomenti aperti</span></div><label class="switch"><input type="checkbox" data-set="pracNarrow" ${p.wide ? '' : 'checked'} aria-label="Solo parole già incontrate"><i></i></label></div>
+        <div class="setting"><div class="grow"><b>Solo parole delle lezioni raggiunte</b><span>Spegni per usare anche le parole delle lezioni successive delle unità aperte</span></div><label class="switch"><input type="checkbox" data-set="pracNarrow" ${p.wide ? '' : 'checked'} aria-label="Solo parole delle lezioni raggiuntrate"><i></i></label></div>
         <button class="btn big block" data-act="practice" data-m="${p.type}">Allenati</button></div></section>
     <section class="sec"><p class="eyebrow">Altro</p><div class="card flush"><ul class="list">
       ${row('practice', 'review', I.retry, 'Ripasso errori', nErr ? 'Le risposte sbagliate, da rifare' : 'Nessun errore da rivedere', nErr ? `<span class="count">${nErr}</span>` : '', !nErr)}
       ${row('practice', 'alfabeto', I.alpha, 'Alfabeto', 'Lettere, letture e accenti')}
-      ${row('methodSheet', '', I.method, 'Il metodo', 'Sette passi per tradurre una frase')}</ul></div></section>`;
+      ${row('methodSheet', '', I.method, 'Il metodo', STEPS() + ' per tradurre una frase')}</ul></div></section>`;
 }
 function viewLibrary() {
-  let h = `<header class="page-head"><h1>Teoria</h1><p class="lede">I ventidue argomenti del biennio. Le tabelle le genera il motore morfologico, senza errori di stampa.</p></header>
-    <div class="card flush"><ul class="list"><li><button class="rowbtn" data-act="methodSheet"><span class="ico">${I.method}</span><span class="txt"><b>Il metodo di costruzione</b><span>Sette passi per non perdersi in una frase</span></span>${I.chev}</button></li></ul></div>`;
+  let h = `<header class="page-head"><h1>Teoria</h1><p class="lede">I ventidue argomenti del biennio. Le tabelle sono generate dal motore morfologico a partire dal lessico del corso.</p></header>
+    <div class="card flush"><ul class="list"><li><button class="rowbtn" data-act="methodSheet"><span class="ico">${I.method}</span><span class="txt"><b>Il metodo di costruzione</b><span>${STEPS()} per non perdersi in una frase</span></span>${I.chev}</button></li></ul></div>`;
   for (const [gid, gdef] of Object.entries(GROUPS)) {
     const list = TOPICS.filter((t) => t.group === gid);
     if (!list.length) continue;
@@ -1220,7 +1321,7 @@ function viewWords() {
   const q = vocabQueue();
   const nDue = q.due.length + q.fresh.length;
   const learned = q.all.filter((e) => S.vocab[e.id] && S.vocab[e.id].box >= 3).length;
-  return `<header class="page-head"><h1>Lessico</h1><p class="lede">${learned} parole imparate su ${q.all.length} incontrate nel percorso.</p></header>
+  return `<header class="page-head"><h1>Lessico</h1><p class="lede">${learned} parole imparate su ${q.all.length} delle lezioni raggiunte nel percorso.</p></header>
     <section class="sec"><p class="eyebrow">Ripasso di oggi</p><div class="card"><p class="note">${nDue ? `${q.due.length} da ripassare · ${q.fresh.length} nuove` : 'Per oggi hai finito: torna domani.'}</p><div id="flash" class="flash"></div></div></section>
     <section class="sec"><p class="eyebrow">Cerca una forma</p><div class="card stack"><p class="note">Scrivi una parola greca, anche senza accenti: il motore la analizza.</p>
     <div class="search"><label class="sr" for="q">Forma greca</label><input id="q" class="gr" lang="grc" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="es. λύσει"><button class="btn" data-act="search" aria-label="Cerca">${I.lens}</button></div>
@@ -1286,12 +1387,18 @@ function sinceText(t) {
   const d = daysBetween(dayKey(new Date(t)), dayKey());
   return d <= 0 ? 'oggi' : d === 1 ? 'ieri' : d + ' giorni fa';
 }
+function origNote() {
+  const o = originals();
+  if (!o.length) return '';
+  const last = o[o.length - 1];
+  return `<div class="orig-note" role="note"><p><b>Salvataggio riparato ${sinceText(last.at)}.</b> Questi dati erano guasti e sono tornati ai valori iniziali: ${esc((last.problems || []).slice(0, 3).join('; '))}. La copia originale è conservata.</p><div class="btns"><button class="btn ghost" data-act="origDownload">Scarica l’originale</button><button class="btn ghost" data-act="origDelete">Elimina</button></div></div>`;
+}
 function saveCard() {
   const old = !S.backupAt || Date.now() - S.backupAt > 7 * 864e5;
   return `<section class="card savecard"><div class="save-head"><span class="save-dot ${saveFailed ? 'bad' : ''}" aria-hidden="true">${saveFailed ? I.close : I.check2}</span><div class="grow"><b>${saveFailed ? 'Il browser non permette di salvare' : 'Progressi salvati su questo dispositivo'}</b><span>${saveFailed ? 'Usa il codice di salvataggio prima di chiudere la pagina.' : 'Si salvano da soli dopo ogni risposta. Ultima copia di sicurezza: ' + sinceText(S.backupAt) + '.'}</span></div></div>
     ${old && S.stats.lessons ? '<p class="save-tip">Per non perderli se cambi telefono o cancelli i dati del browser, tieni da parte il codice di salvataggio.</p>' : ''}
     <div class="btns"><button class="btn" data-act="saveCode">Codice</button><button class="btn ghost" data-act="export">Scarica copia</button></div>
-    <button class="linkbtn" data-act="restoreSheet">Ripristina da un codice o da un file</button></section>`;
+    <button class="linkbtn" data-act="restoreSheet">Ripristina da un codice o da un file</button>${origNote()}</section>`;
 }
 function codeSheet(mode) {
   const code = SV.encode(S, LESSON_IDS(), BADGE_IDS());
@@ -1303,13 +1410,38 @@ function codeSheet(mode) {
     <div class="field"><label for="codeIn">Inserisci un codice</label><textarea id="codeIn" class="typed codein" rows="3" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Per esempio 1A2B-C3D4-…"></textarea><p class="note" id="codeMsg" role="status"></p></div>
     <div class="btns"><button class="btn" data-act="restoreCode">Ripristina</button><button class="btn ghost" data-act="import">Da file</button></div>`);
 }
-function applyRestore(part) {
-  const keepOnb = { onboarded: true, v: 2 };
-  const def = DEFAULT();
-  S = Object.assign(def, part, keepOnb, { stats: Object.assign(def.stats, part.stats || {}), settings: Object.assign(def.settings, part.settings || {}), course: Object.assign(def.course, part.course || {}), prac: Object.assign(def.prac, part.prac || {}) });
+function adopt(cand) {
+  const prev = S;
+  try { S = cand; S.onboarded = true; migrate(); } catch (e) { S = prev; toast('Questi progressi non si possono usare: quelli del dispositivo non sono cambiati.'); return; }
   S.backupAt = Date.now();
-  onb = null; syncTopics(); save(); applyTheme(); closeSheet(); VIEW = 'path'; render(); window.scrollTo(0, 0);
+  onb = null; save(); applyTheme(); closeSheet(); closeModal(); VIEW = 'path'; render(); window.scrollTo(0, 0);
   toast('Progressi ripristinati.');
+}
+function askReplace(what, go) {
+  if (S.onboarded && (S.xp || S.stats.lessons)) { closeSheet(); askConfirm(`Sostituire i progressi di questo dispositivo con quelli ${what}?`, 'Ripristina', go); } else go();
+}
+function refuse(what, problems) {
+  const list = problems.slice(0, 3).join('; ') + (problems.length > 3 ? `; e altri ${problems.length - 3}` : '');
+  showModal(`${ermes('sad', 88)}<h2>${esc(what)} non valido</h2><p>Dati non accettati: ${esc(list)}.</p><p class="note">I progressi di questo dispositivo non sono cambiati.</p><div class="btns"><button class="btn" data-act="closeModal">Ho capito</button></div>`);
+}
+function applyRestore(part) {
+  const def = DEFAULT();
+  const d = Object.assign(def, part, { v: 2, onboarded: true, course: Object.assign(def.course, part.course), stats: Object.assign(def.stats, part.stats), settings: Object.assign(def.settings, part.settings), prac: Object.assign(def.prac, part.prac) });
+  const r = ST.check(d, stateCtx());
+  if (r.problems.length) return refuse('Codice', r.problems);
+  adopt(r.state);
+}
+function importFile(text) {
+  let d;
+  try { d = JSON.parse(text); } catch (e) { return refuse('File', ['non è una copia di Hermeneus (formato JSON illeggibile)']); }
+  const r = ST.check(d, stateCtx());
+  if (r.problems.length) return refuse('File', r.problems);
+  askReplace('del file', () => adopt(r.state));
+}
+function downloadJSON(data, name) {
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 function viewMe() {
   const rk = rankOf(S.xp);
@@ -1330,14 +1462,14 @@ function viewMe() {
       ${sw('gen', 'Frasi generate', 'Oltre alle frasi verificate, frasi nuove create sul dispositivo')}</div></section>
     <section class="sec"><p class="eyebrow">Suoni e aspetto</p><div class="card flush">
       ${sw('sound', 'Suoni', 'Segnali sonori per le risposte')}
-      ${sw('voice', 'Lettura ad alta voce', 'Pronuncia erasmiana con la voce italiana del dispositivo')}
+      ${sw('voice', 'Lettura ad alta voce', 'Lettura approssimata con la voce italiana del dispositivo')}
       <div class="setting wrap"><div class="grow"><b>Tema</b><span>Colori dell’app</span></div><div class="seg">${[['auto', 'Automatico'], ['light', 'Chiaro'], ['dark', 'Scuro']].map(([v, l]) => `<button data-act="theme" data-v="${v}" aria-pressed="${set.theme === v}">${l}</button>`).join('')}</div></div></div></section>
     <section class="sec"><p class="eyebrow">App e dati</p><div class="card flush">
       ${sw('online', 'Wikizionario', 'Collegamento al dizionario online: si invia solo la parola cercata')}
       <div class="setting"><div class="grow"><b>Installa l’app</b><span>${isStandalone() ? 'Hermeneus è già installata.' : 'Sul telefono funziona anche senza rete.'}</span></div><button class="btn small ghost" data-act="install" ${isStandalone() ? 'disabled' : ''}>Installa</button></div>
       <div class="setting"><div class="grow"><b>Nome</b><span>Facoltativo, resta sul dispositivo</span></div><button class="btn small ghost" data-act="rename">Cambia</button></div>
       <div class="setting"><div class="grow"><b>Azzera i progressi</b><span>Cancella tutto da questo dispositivo</span></div><button class="btn small err" data-act="reset">Azzera</button></div></div></section>
-    <section class="sec"><p class="eyebrow">Informazioni</p><div class="card stack"><p class="note">Hermeneus funziona tutto sul tuo dispositivo: nessun account, nessuna raccolta di dati, nessuna intelligenza artificiale. Pronuncia erasmiana della scuola italiana, letta dalla sintesi vocale del dispositivo. Caratteri: Gentium Plus, GFS Didot, Rubik (licenza SIL OFL 1.1). Dizionario online facoltativo: Wikizionario (CC BY-SA).</p>
+    <section class="sec"><p class="eyebrow">Informazioni</p><div class="card stack"><p class="note">Hermeneus funziona tutto sul tuo dispositivo: nessun account, nessuna raccolta di dati, nessuna intelligenza artificiale. Lettura ad alta voce: un’approssimazione della pronuncia erasmiana fatta dalla sintesi vocale italiana del dispositivo, che non distingue spirito aspro, aspirate, υ e ου, vocali lunghe e brevi. Caratteri: Gentium Plus, GFS Didot, Rubik (licenza SIL OFL 1.1). Dizionario online facoltativo: Wikizionario (CC BY-SA).</p>
     <p class="note">${E.LEX.length} lemmi · ${UNITS.length} unità · ${FLAT.length} lezioni · ${BANK.length} frasi verificate · ${B.SENTENTIAE.length} massime.</p></div></section>`;
 }
 /* ---------- Benvenuto e posizione nel percorso ---------- */
@@ -1351,18 +1483,18 @@ function drawOnb() {
   const steps = `<div class="steps" aria-hidden="true">${[0, 1, 2].map((i) => `<i class="${i <= onb.step ? 'on' : ''}"></i>`).join('')}</div>`;
   let h = `<div class="onb">${steps}`;
   if (onb.step === 0) {
-    h += `<div class="onb-hero">${ermes('cheer', 150)}<h1><span lang="grc">Χαῖρε!</span> Io sono Ermes.</h1><p>Il messaggero degli dèi, protettore dei viaggiatori e degli interpreti. Ti guido nel greco, una lezione alla volta: dieci minuti al giorno bastano.</p></div>
+    h += `<div class="onb-hero">${ermes('cheer', 150)}<h1><span lang="grc">Χαῖρε!</span> Io sono Ermes.</h1><p>Il messaggero degli dèi, protettore dei viaggiatori e degli interpreti. Ti guido nel greco, una lezione alla volta: per cominciare, punta a dieci minuti al giorno.</p></div>
       <div class="card field"><label for="nm">Come ti chiami? <span class="muted">(facoltativo)</span></label><input id="nm" class="typed" maxlength="24" autocomplete="off" value="${esc(onb.name)}" placeholder="Nome o soprannome"><p class="note">Tutto resta su questo dispositivo: nessun account, nessun dato inviato a nessuno.</p></div>
       <button class="btn big block" data-act="onbNext">Cominciamo</button>
       <button class="linkbtn" data-act="restoreSheet">Hai già usato Hermeneus? Ripristina i progressi</button>`;
   } else if (onb.step === 1) {
-    h += say('Dove sei arrivato con il programma di classe? Apro le unità che hai già studiato; le altre si sbloccano facendo le lezioni.', 'think', 76) + placementList(onb.place, 'onbPlace') + `<button class="btn big block" data-act="onbNext">Avanti</button>`;
+    h += say('Dove sei arrivato con il programma di classe? Se cominci ora, premi Avanti: si parte dall’alfabeto. Altrimenti scegli l’ultima unità studiata in classe.', 'think', 76) + placementList(onb.place, 'onbPlace') + `<div class="onb-foot"><button class="btn big block" data-act="onbNext">${onb.place ? 'Avanti' : 'Avanti: comincio da zero'}</button><button class="btn ghost block" data-act="onbBack">Indietro</button></div>`;
   } else {
     h += say('Ultime due scelte. Potrai cambiarle quando vuoi nel profilo.', 'happy', 76) + `<div class="card flush"><div class="setting wrap"><div class="grow"><b>Obiettivo giornaliero</b><span>Una lezione vale circa 60 XP</span></div><div class="seg">${[[30, 'Calmo'], [50, 'Normale'], [80, 'Serio'], [120, 'Intenso']].map(([g, l]) => `<button data-act="onbGoal" data-v="${g}" aria-pressed="${onb.goal === g}">${l}</button>`).join('')}</div></div>
-      <div class="setting"><div class="grow"><b>Modalità graduale</b><span>All’inizio è più sereno: errori di accento e di spirito vengono segnalati ma non contano. Lo iota sottoscritto conta sempre.</span></div><label class="switch"><input type="checkbox" id="onbAcc" ${onb.accents === 'lenient' ? 'checked' : ''} aria-label="Modalità graduale"><i></i></label></div></div>
+      <div class="setting"><div class="grow"><b>Modalità graduale</b><span>All’inizio è più sereno: accenti, spiriti e forma di οὐ/ἐκ vengono segnalati ma non contano come errori (valgono qualche punto in meno). Lo iota sottoscritto conta sempre.</span></div><label class="switch"><input type="checkbox" id="onbAcc" ${onb.accents === 'lenient' ? 'checked' : ''} aria-label="Modalità graduale"><i></i></label></div></div>
       <button class="btn big block" data-act="onbDone">Iniziamo il viaggio</button>`;
   }
-  h += `${onb.step ? '<button class="btn ghost block" data-act="onbBack">Indietro</button>' : ''}</div>`;
+  h += `${onb.step === 2 ? '<button class="btn ghost block" data-act="onbBack">Indietro</button>' : ''}</div>`;
   $('#app').innerHTML = h;
   window.scrollTo(0, 0);
 }
@@ -1407,7 +1539,7 @@ const ACT = {
   pracLevel: (el) => { S.prac.level = el.dataset.v; save(); rerenderKeep(`[data-act="pracLevel"][data-v="${el.dataset.v}"]`); },
   pracType: (el) => { S.prac.type = el.dataset.v; save(); rerenderKeep(`[data-act="pracType"][data-v="${el.dataset.v}"]`); },
   topic: (el) => { VIEW = 'topic:' + el.dataset.t; openNode = null; render(); window.scrollTo(0, 0); },
-  quit: () => { const go = () => { const y = SES ? SES.backY : 0; SES = null; closeOverlay(); render(); window.scrollTo(0, y); }; if (SES && SES.i > 0 && !SES.done) askConfirm('Vuoi davvero uscire? I progressi di questa lezione andranno persi.', 'Esci', go, true, 'sad'); else go(); },
+  quit: () => { const go = () => { const y = SES ? SES.backY : 0; SES = null; closeOverlay(); render(); window.scrollTo(0, y); }; if (SES && SES.i > 0 && !SES.done) askConfirm('Uscire dalla lezione? Le risposte date restano nelle statistiche e gli errori da ripassare sono salvati, ma punti e stelle si guadagnano solo arrivando alla fine: la lezione ricomincerà da capo.', 'Esci', go, true, 'sad'); else go(); },
   modalOk: () => { const i = $('#mdIn'); const v = i ? i.value : true; const cb = modalCb; modalCb = null; closeModal(); if (cb) cb(v); },
   check: () => doCheck(),
   next: () => { SES.i++; renderItem(); },
@@ -1426,7 +1558,7 @@ const ACT = {
   speakSent: () => speak(SES.cur.it.s.gr),
   speakForm: () => speak(SES.cur.it.form || SES.cur.it.word),
   speakText: (el) => speak(el.dataset.w),
-  method: (el) => { const on = el.getAttribute('aria-pressed') !== 'true'; el.setAttribute('aria-pressed', on); $$('#ovBody .w.vb').forEach((w) => w.classList.toggle('verb', on)); $('#aux').innerHTML = on ? say(`I verbi sono evidenziati: tanti verbi, tante proposizioni. Poi cerca il soggetto al nominativo e l’oggetto all’accusativo. <button class="tool" data-act="methodSheet">${I.method}Tutti i passi</button>`, 'think', 56) : ''; },
+  method: (el) => { const on = el.getAttribute('aria-pressed') !== 'true'; el.setAttribute('aria-pressed', on); $$('#ovBody .w.vb').forEach((w) => w.classList.toggle('verb', on)); $('#aux').innerHTML = on ? say(`I verbi sono evidenziati: come primo orientamento, ogni verbo di modo finito regge una proposizione. Poi cerca il soggetto al nominativo e l’oggetto all’accusativo. <button class="tool" data-act="methodSheet">${I.method}Tutti i passi</button>`, 'think', 56) : ''; },
   methodSheet: () => methodSheet(),
   hint: () => hint(),
   theory: (el) => theorySheet(el.dataset.t),
@@ -1437,6 +1569,7 @@ const ACT = {
   kb: (el) => { const t = $('#typed'); if (!t || t.readOnly) return; insertText(t, kbUpper ? el.dataset.k.toUpperCase() : el.dataset.k); kbUpper = false; const b = $('#checkBtn'); if (b) b.disabled = !t.value.trim(); },
   kbd: (el) => { const t = $('#typed'); if (!t || t.readOnly) return; applyMark(t, el.dataset.m); },
   kbx: () => { const t = $('#typed'); if (!t || t.readOnly) return; const a = t.selectionStart ?? t.value.length; const chars = [...t.value.slice(0, a)]; chars.pop(); t.value = chars.join('') + t.value.slice(a); normalizeTyped(t, chars.join('').length); const b = $('#checkBtn'); if (b) b.disabled = !t.value.trim(); },
+  kbCoachOk: () => { S.coach.kbd = true; save(); const c = $('#kbCoach'); if (c) c.remove(); const t = $('#typed'); if (t) t.focus({ preventScroll: true }); },
   kbcase: () => { kbUpper = !kbUpper; toast(kbUpper ? 'Prossima lettera maiuscola.' : 'Minuscole.'); },
   placement: () => placementSheet(),
   setPlace: (el) => {
@@ -1464,11 +1597,12 @@ const ACT = {
     const msg = $('#codeMsg');
     let part;
     try { part = SV.decode(v, LESSON_IDS(), BADGE_IDS()); } catch (e) { if (msg) { msg.textContent = e.message; msg.classList.add('bad'); } return; }
-    const go = () => applyRestore(part);
-    if (S.onboarded && (S.xp || S.stats.lessons)) { closeSheet(); askConfirm('Sostituire i progressi di questo dispositivo con quelli del codice?', 'Ripristina', go); } else go();
+    askReplace('del codice', () => applyRestore(part));
   },
-  export: () => { const blob = new Blob([JSON.stringify(S)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hermeneus-progressi-' + dayKey() + '.json'; S.backupAt = Date.now(); save(); document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); },
-  import: () => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'application/json,.json'; i.onchange = () => { const f = i.files[0]; if (!f) return; f.text().then((t) => { try { const d = JSON.parse(t); if (d && (d.v === 1 || d.v === 2)) { localStorage.setItem(KEY, JSON.stringify(d)); load(); S.backupAt = Date.now(); onb = null; save(); closeSheet(); applyTheme(); VIEW = 'path'; render(); toast('Progressi ripristinati.'); } else toast('File non valido.'); } catch (e) { toast('File non valido.'); } }); }; i.click(); },
+  export: () => { S.backupAt = Date.now(); save(); downloadJSON(S, 'hermeneus-progressi-' + dayKey() + '.json'); },
+  origDownload: () => { const o = originals(); if (o.length) downloadJSON(o, 'hermeneus-copia-originale-' + dayKey() + '.json'); },
+  origDelete: () => askConfirm('Eliminare la copia originale del salvataggio guasto?', 'Elimina', () => { try { localStorage.removeItem(ORIGINALS); } catch (e) { /* ignora */ } render(); }, true),
+  import: () => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'application/json,.json'; i.onchange = () => { const f = i.files[0]; if (f) f.text().then(importFile, () => refuse('File', ['non si riesce a leggere'])); }; i.click(); },
   reset: () => askConfirm('Cancellare tutti i progressi da questo dispositivo?', 'Cancella', () => { try { localStorage.removeItem(KEY); } catch (e) { /* ignora */ } S = DEFAULT(); onb = null; applyTheme(); render(); }, true, 'sad'),
   search: () => searchForm(),
   flashShow: () => { flashCur.shown = true; drawFlash(); },
@@ -1506,7 +1640,7 @@ document.addEventListener('change', (ev) => {
   save();
 });
 document.addEventListener('keydown', (ev) => {
-  if (ev.key === 'Escape') { if ($('#pop')) closePop(); else if ($('#modal')) closeModal(); else if ($('#sheet')) closeSheet(); else if (openNode != null) { openNode = null; rerenderKeep(); } return; }
+  if (ev.key === 'Escape') { if ($('#pop')) closePop(); else if ($('#modal')) closeModal(); else if ($('#sheet')) closeSheet(); else if (SES && $('#ov')) act('quit'); else if (openNode != null) { openNode = null; rerenderKeep(); } return; }
   if (ev.target && ev.target.id === 'typed') {
     onTypedKey(ev);
     if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); if (SES && SES.cur && SES.cur.answered) { if ($('#nextBtn')) act('next'); } else act('check'); }
@@ -1554,6 +1688,7 @@ function boot() {
   const mq = matchMedia('(prefers-color-scheme: dark)');
   if (mq.addEventListener) mq.addEventListener('change', applyTheme);
   render();
+  flushToasts();
   warmLoop();
   try { if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; } } catch (e) { /* ignora */ }
   if (SITE && 'serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});

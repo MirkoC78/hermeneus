@@ -381,7 +381,7 @@ const matches = (n, spec) => {
       s += itVerb(V, sl('v', V.it.length), 'imp', { p: plural ? 4 : 1 }) + ' ' + itStr(itNP(oNP, sl('o', oNP.n.it.length)), V.oit || null);
       return s;
     };
-    return finish(ctx, toks, itFn, [], t === 'aor' ? 'Imperativo aoristo: azione puntuale, senza valore temporale.' : 'Imperativo presente.');
+    return finish(ctx, toks, itFn, [], t === 'aor' ? 'Imperativo aoristo: azione vista nel suo insieme, senza valore di passato.' : 'Imperativo presente.');
   }
   // dimostrativo in posizione predicativa
   function bDemo(ctx) {
@@ -489,7 +489,7 @@ const matches = (n, spec) => {
       let s = itStr(sI) + ' ' + itVerb(M, sl('m', M.it.length), itT, { p: subjP(sNP) });
       if (say) {
         const aI = itNP(aNP, sl('a', aNP.n.it.length));
-        s += ' che ' + itStr(aI) + ' ' + itVerb(V, sl('v', V.it.length), 'pres', { p: subjP(aNP) });
+        s += ' che ' + itStr(aI) + ' ' + itVerb(V, sl('v', V.it.length), M.op ? 'cpres' : 'pres', { p: subjP(aNP) });
       } else s += ' ' + V.it[sl('v', V.it.length) % V.it.length];
       return s + ' ' + itStr(itNP(oNP, sl('o', oNP.n.it.length)), V.oit || null);
     };

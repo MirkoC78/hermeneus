@@ -92,7 +92,12 @@
       // forme senza lemmi nuovi (es. «il presente medio-passivo»): parole note di quel tipo
       ents = E.LEX.filter((e) => kinds.includes(e.k) && sc.T.has(e.topic) && (!sc.vocab || known(e, sc.T, sc.vocab)) && e.k !== 'i');
     }
-    if (!ents.length) ents = E.LEX.filter((e) => kinds.includes(e.k) && e.topic === sc.focus);
+    if (!ents.length) {
+      // ultima risorsa: le parole dell'argomento, ma prima quelle già incontrate
+      ents = E.LEX.filter((e) => kinds.includes(e.k) && e.topic === sc.focus);
+      const seen = ents.filter((e) => !sc.vocab || known(e, sc.T, sc.vocab));
+      if (seen.length) ents = seen;
+    }
     return ents;
   }
   function formsIn(e, sc, noVoc) {
@@ -314,7 +319,8 @@
   // pratica libera selettiva: argomenti, vocabolario e tipo di esercizi
   function buildPractice(o) {
     const T = o.T;
-    const vocab = o.wide ? null : vocabForTopics(T);
+    // o.vocab: parole delle lezioni raggiunte; o.reached: id di quelle lezioni (senza, tutte le lezioni degli argomenti)
+    const vocab = o.wide ? null : o.vocab || vocabForTopics(T);
     const focus = o.focus || [...T].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0];
     const unit = UNIT_BY_ID[focus];
     // o.level: { minWords, maxWords, simple } per versione e retroversione
@@ -327,7 +333,7 @@
       // per le forme si sceglie una lezione a caso dell'unità di focus, così il perimetro resta preciso
       let s2 = sc;
       if (unit && ['analizza', 'scrivi', 'accorda', 'abbina'].includes(t)) {
-        const ls = unit.lessons.filter((l) => !l.test && (l.lemmas || l.keys));
+        const ls = unit.lessons.filter((l) => !l.test && (l.lemmas || l.keys) && (o.wide || !o.reached || o.reached.has(l.id)));
         const L = ls.length ? pick(ls) : null;
         if (L) s2 = Object.assign({}, sc, { lemmas: L.lemmas || null, keys: L.keys ? new RegExp(L.keys) : null });
       }

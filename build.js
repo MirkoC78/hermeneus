@@ -40,7 +40,7 @@ const fontCSS = FONTS.map(([fam, w, file, range]) => {
 }).join('\n');
 
 // 3. Script nell'ordine di dipendenza
-const MODULES = ['src/greek.js', 'src/morph.js', 'src/lexicon.js', 'src/sentence.js', 'src/check.js', 'src/italian.js', 'src/semantic.js', 'src/generator.js', 'src/course.js', 'src/lessons.js', 'src/topics.js', 'src/bank.js', 'src/savecode.js'];
+const MODULES = ['src/greek.js', 'src/morph.js', 'src/lexicon.js', 'src/sentence.js', 'src/check.js', 'src/italian.js', 'src/semantic.js', 'src/generator.js', 'src/course.js', 'src/lessons.js', 'src/topics.js', 'src/bank.js', 'src/savecode.js', 'src/state.js'];
 const code = MODULES.map((m) => `/* ---- ${m} ---- */\n` + r(m)).join('\n;\n') + `\n;window.HERM_PRE = ${JSON.stringify(pre)};\n;\n` + r('src/app.js');
 const css = r('src/app.css');
 const png = (f) => 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, 'assets', f)).toString('base64');
@@ -101,16 +101,27 @@ fs.writeFileSync(path.join(SITE, 'manifest.webmanifest'), JSON.stringify({
   ],
 }, null, 2));
 const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png'];
-fs.writeFileSync(path.join(SITE, 'sw.js'), `/* Hermeneus — service worker: tutto in cache per l'uso offline. Versione ${version}. */
-const CACHE = 'hermeneus-${version}';
+fs.writeFileSync(path.join(SITE, 'sw.js'), `/* Hermeneus — service worker: tutto in cache per l'uso offline. Versione ${version}.
+   Le cache hanno un nome legato alla cartella di installazione: all'aggiornamento si cancellano solo
+   le versioni precedenti di questa installazione, mai le cache di altre app (o di altre copie di Hermeneus)
+   ospitate sullo stesso sito. */
+const SCOPE = self.registration.scope;
+const PREFIX = 'hermeneus@' + SCOPE + '@';
+const CACHE = PREFIX + '${version}';
+// nome usato dalle versioni precedenti, senza cartella: si riconosce come nostro se contiene la nostra pagina
+const LEGACY = /^hermeneus-[0-9a-f]{10}$/;
 const ASSETS = ${JSON.stringify(ASSETS)};
+const ours = (k) => k !== CACHE && (k.startsWith(PREFIX) || (LEGACY.test(k) && caches.open(k).then((c) => c.match(new URL('index.html', SCOPE).href)).then((r) => !!r)));
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
-self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.map((k) => Promise.resolve(ours(k)).then((old) => old && caches.delete(k))))).then(() => self.clients.claim()));
+});
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
-  if (req.mode === 'navigate') { e.respondWith(caches.match('index.html').then((r) => r || fetch(req))); return; }
-  e.respondWith(caches.match(req).then((r) => r || fetch(req).then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; })));
+  const cached = (r) => caches.open(CACHE).then((c) => c.match(r));
+  if (req.mode === 'navigate') { e.respondWith(cached('index.html').then((r) => r || fetch(req))); return; }
+  e.respondWith(cached(req).then((r) => r || fetch(req).then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; })));
 });
 `);
 fs.writeFileSync(path.join(SITE, 'LEGGIMI.txt'), `HERMENEUS — pacchetto per la pubblicazione (versione ${version})
