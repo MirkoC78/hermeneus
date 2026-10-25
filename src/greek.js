@@ -254,7 +254,8 @@
   // ultima vocale con accento acuto o grave come acuto (per confronto)
   function startsWithVowel(s) {
     const L = parse(s).filter((l) => !l.mark);
-    return !!(L[0] && (isV(L[0].b) || L[0].b === 'ῥ'));
+    // ρ iniziale (anche ῥ) è una consonante: οὐ ῥᾴδιος, ἐκ ῥ…, nessun ν efelcistico
+    return !!(L[0] && isV(L[0].b));
   }
   function initialBreathing(s) {
     const L = parse(s).filter((l) => !l.mark);

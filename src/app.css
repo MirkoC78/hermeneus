@@ -566,3 +566,5 @@ hr.sep { border: 0; border-top: 1px solid var(--line); margin: var(--sp-2) 0; wi
 h1 [lang="grc"], h2 [lang="grc"] { font-family: var(--f-grd); font-weight: 400; }
 /* collegamento «Vai al contenuto»: visibile solo quando riceve il fuoco dalla tastiera */
 a.sr:focus { position: fixed !important; z-index: 200; left: var(--sp-4); top: var(--sp-4); width: auto; height: auto; clip: auto; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--surface); color: var(--pri); font-weight: 600; box-shadow: var(--sh-2); }
+.checklist { margin: var(--sp-1) 0; padding-left: var(--sp-5); display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-sm); }
+.accent-warn b { font-weight: 600; }

@@ -12,6 +12,7 @@ const UNITS = C.UNITS;
 const FLAT = LS.FLAT;
 const SITE = !!window.HERM_SITE;
 const SV = window.HermSave;
+const HC = window.HermCheck;
 
 /* ---------- Utilità ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -25,23 +26,6 @@ const gr = (s, cls = '') => `<span class="gr ${cls}" lang="grc">${esc(s)}</span>
 function dayKey(d = new Date()) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function addDays(k, n) { const [y, m, d] = k.split('-').map(Number); return dayKey(new Date(y, m - 1, d + n)); }
 function daysBetween(a, b) { const [y1, m1, d1] = a.split('-').map(Number); const [y2, m2, d2] = b.split('-').map(Number); return Math.round((new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1)) / 864e5); }
-function normIt(s) {
-  return String(s).toLowerCase().replace(/[’`´]/g, "'").normalize('NFD').replace(/[\u0300-\u036F]/g, '')
-    .replace(/'/g, ' ').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-}
-function lev(a, b) {
-  if (a === b) return 0;
-  const m = a.length, n = b.length; if (!m) return n; if (!n) return m;
-  let prev = Array.from({ length: n + 1 }, (_, i) => i), cur = new Array(n + 1);
-  for (let i = 1; i <= m; i++) {
-    cur[0] = i;
-    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    [prev, cur] = [cur, prev];
-  }
-  return prev[n];
-}
-const sim = (a, b) => (!a && !b ? 1 : 1 - lev(a, b) / Math.max(a.length, b.length));
-const simLoose = (a, b) => Math.max(sim(a, b), sim(a.split(' ').sort().join(' '), b.split(' ').sort().join(' ')) * 0.96);
 
 /* ---------- Icone ---------- */
 const svg = (d, o = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${o}>${d}</svg>`;
@@ -707,43 +691,6 @@ function onTypedKey(ev) {
 }
 
 /* ---------- Controllo delle risposte ---------- */
-function bestItalianMatch(s, ans) {
-  const a = normIt(ans);
-  let best = 0, bestRef = s.it[0];
-  for (const r of s.it) { const v = simLoose(a, normIt(r)); if (v > best) { best = v; bestRef = r; } }
-  return { best, bestRef };
-}
-function checkTypedGreek(refTokens, typed) {
-  const lenient = S.settings.accents === 'lenient';
-  const words = SN.render(refTokens, { words: true });
-  const ref = refTokens.map((t, i) => ({ t, w: words[i] })).filter((x) => x.t && !x.t.p);
-  const ans = SN.splitWords(typed).filter((w) => !SN.PUNCT.test(w));
-  if (ans.length !== ref.length) return { ok: false, accent: [] };
-  const variants = (x) => {
-    const v = new Set([x.w, x.t.f]);
-    if (x.t.nu) { v.add(x.w.replace(/ν$/, '')); v.add(x.t.f + 'ν'); }
-    if (x.t.lemma === 'οὐ') ['οὐ', 'οὐκ', 'οὐχ', 'οὔ'].forEach((q) => v.add(q));
-    if (x.t.lemma === 'ἐκ') ['ἐκ', 'ἐξ'].forEach((q) => v.add(q));
-    if (x.t.encl) v.add(G.stripAccents(x.w));
-    return [...v];
-  };
-  const V = ref.map(variants);
-  const VB = V.map((vs) => vs.map((x) => G.bare(x)));
-  const cand = ans.map((w) => ref.map((_, i) => i).filter((i) => VB[i].includes(G.bare(w))));
-  const used = new Array(ref.length).fill(false);
-  const assign = [];
-  let found = null;
-  (function dfs(k) {
-    if (found) return;
-    if (k === ans.length) { if (SN.orderOK(refTokens, assign.map((i) => ref[i].t.f))) found = assign.slice(); return; }
-    for (const i of cand[k]) { if (used[i]) continue; used[i] = true; assign.push(i); dfs(k + 1); assign.pop(); used[i] = false; if (found) return; }
-  })(0);
-  if (!found) return { ok: false, accent: [] };
-  const twoAcc = (s) => { const L = G.parse(s); const N = G.nuclei(L); const acc = N.filter((n) => L[n.j].ac); if (acc.length === 2) L[acc[1].j].ac = ''; return G.strict(G.serialize(L)); };
-  const accent = [];
-  ans.forEach((w, k) => { const vs = V[found[k]]; if (!vs.some((x) => G.strict(x) === G.strict(w) || twoAcc(x) === twoAcc(w))) accent.push({ got: w, want: ref[found[k]].w }); });
-  return { ok: accent.length === 0 || lenient, accent, exact: accent.length === 0 };
-}
 function act(name, el) { if (ACT[name]) ACT[name](el); }
 function pickOption(k) {
   const c = SES.cur; if (!c || c.answered) return;
@@ -761,14 +708,15 @@ function doCheck() {
     if (c.inputMode === 'tiles') {
       if (!c.chosen.length) return;
       const built = c.chosen.map((k) => c.tiles[k].label).join(' ');
-      const ok = it.s.it.some((r) => normIt(r) === normIt(built));
-      res = { ok, sol: it.s.it[0], given: built, near: !ok && simLoose(normIt(built), normIt(it.s.it[0])) > 0.7 };
+      const ok = HC.tilesItalian(it.s.it, built);
+      res = { ok, sol: it.s.it[0], given: built, near: !ok && HC.sim(HC.normIt(built), HC.normIt(it.s.it[0])) > 0.8 };
     } else {
       const ans = $('#typed').value.trim();
       if (!ans) return toast('Scrivi la traduzione.');
-      const m = bestItalianMatch(it.s, ans);
-      if (m.best >= 0.88) res = { ok: true, sol: m.bestRef, given: ans, typed: true, note: normIt(ans) !== normIt(m.bestRef) ? 'Versione di riferimento: ' + m.bestRef : '' };
-      else return selfGrade(it, ans, m.bestRef);
+      // si accetta da sola solo una soluzione prevista; il resto va al confronto guidato
+      const m = HC.matchItalian(it.s.it, ans);
+      if (m.status === 'review') return selfGrade(it, ans, m.ref);
+      res = { ok: true, sol: m.ref, given: ans, typed: true, note: m.status === 'accents' ? 'Attento agli accenti: ' + m.ref : '' };
     }
   } else if (it.type === 'it_gr') {
     const ref = tokensOf(it.s);
@@ -782,9 +730,9 @@ function doCheck() {
     } else {
       const ans = $('#typed').value.trim();
       if (!ans) return toast('Scrivi la frase in greco.');
-      const r = checkTypedGreek(ref, ans);
-      res = { ok: r.ok, sol: it.s.gr, given: ans, greek: true, typed: true, accent: r.accent, accentOnly: r.ok && !r.exact };
-      if (r.ok && r.exact) S.stats.accentOK++;
+      const r = HC.checkGreek(ref, ans, { lenient: S.settings.accents === 'lenient' });
+      res = { ok: r.ok, sol: it.s.gr, given: ans, greek: true, typed: true, issues: r.issues, accentOnly: r.ok && !r.exact };
+      if (r.exact) S.stats.accentOK++;
     }
   } else if (it.type === 'analizza') {
     const ok = it.valid.includes(it.options[c.picked]);
@@ -793,12 +741,9 @@ function doCheck() {
   } else if (it.type === 'scrivi') {
     const raw = G.nfc($('#typed').value.trim());
     if (!raw) return toast('Scrivi la forma.');
-    const alts = it.answers.concat(it.nu ? it.answers.map((a) => a + 'ν') : []);
-    const exact = alts.some((a) => G.strict(a) === G.strict(raw));
-    const loose = alts.some((a) => G.bare(a) === G.bare(raw));
-    const ok = exact || (loose && S.settings.accents === 'lenient');
-    res = { ok, sol: it.answers.join(' / '), greek: true, accentOnly: ok && !exact, accent: loose && !exact ? [{ got: raw, want: it.answers[0] }] : [] };
-    if (exact) S.stats.accentOK++;
+    const r = HC.checkForm(it.answers, raw, { lenient: S.settings.accents === 'lenient', nu: it.nu });
+    res = { ok: r.ok, sol: it.answers.join(' / '), greek: true, issues: r.issues, accentOnly: r.ok && !r.exact };
+    if (r.exact) S.stats.accentOK++;
   } else if (it.type === 'completa') {
     const ok = it.options[c.picked] === it.answer;
     res = { ok, sol: it.s.gr, greek: true };
@@ -833,7 +778,9 @@ function markOptions(ok, isRight) {
 function selfGrade(it, ans, sol) {
   const c = SES.cur; c.answered = true;
   $('#typed').readOnly = true;
-  $('#ovFoot').innerHTML = `<div class="fb">${ermes('think', 52)}<div class="fb-txt"><h3>Confronta con la soluzione</h3><p class="sol">${esc(sol)}</p>${it.s.it.length > 1 ? `<p class="note">Anche: ${it.s.it.filter((x) => x !== sol).slice(0, 2).map(esc).join(' · ')}</p>` : ''}<p class="note">La tua traduzione è diversa da quelle previste: giudica tu con onestà.</p></div></div>
+  $('#ovFoot').innerHTML = `<div class="fb">${ermes('think', 52)}<div class="fb-txt"><h3>Confronta con la soluzione</h3><p class="sol">${esc(sol)}</p>${it.s.it.length > 1 ? `<p class="note">Anche: ${it.s.it.filter((x) => x !== sol).slice(0, 2).map(esc).join(' · ')}</p>` : ''}
+    <ul class="checklist"><li>Chi compie l’azione e chi la subisce sono gli stessi?</li><li>Il verbo ha lo stesso tempo, la stessa persona e lo stesso numero?</li><li>Complementi e negazione ci sono tutti, con lo stesso senso?</li></ul>
+    <p class="note">Se rispondi sì a tutto, la tua traduzione va bene anche se è scritta in modo diverso.</p></div></div>
     <div class="btns"><button class="btn err" data-act="self" data-v="0">Ho sbagliato</button><button class="btn ok" data-act="self" data-v="1">Era giusta</button></div>`;
   c.selfData = { ans, sol };
 }
@@ -849,7 +796,7 @@ function finalize(res) {
   let gained = 0;
   if (res.ok) {
     SES.combo++; SES.best = Math.max(SES.best, SES.combo); SES.ok++; S.stats.correct++;
-    gained = (XP_BASE[it.type] || 6) * (res.accentOnly ? 0.7 : 1) + (SES.combo >= 3 ? Math.min(SES.combo, 6) * 2 : 0) + (it.s && it.s.src === 'gen' ? 2 : 0) + (res.typed ? 3 : 0);
+    gained = (XP_BASE[it.type] || 6) * (res.accentOnly ? 0.7 : 1) + (SES.combo >= 3 ? Math.min(SES.combo, 6) * 2 : 0) + (it.s && it.s.src === 'gen' ? 2 : 0) + (res.typed && !res.self ? 3 : 0);
     if (it.type === 'gr_it' || it.type === 'it_gr') S.stats.translated++;
     if (it.type === 'analizza' || it.type === 'scrivi') S.stats.forms++;
     if (res.typed && !res.self) S.stats.typedOK++;
@@ -883,6 +830,22 @@ function addMistake(it) {
   const sig = (a) => JSON.stringify(Object.assign({}, a, { at: 0 }));
   S.mistakes = S.mistakes.filter((a) => sig(a) !== sig(m)).concat([Object.assign(m, { at: Date.now() })]).slice(-60);
 }
+// spiegazioni dei segni sbagliati, una riga per tipo
+function formRule(want) {
+  return { 'οὐκ': 'davanti a vocale con spirito dolce si scrive οὐκ', 'οὐχ': 'davanti a vocale con spirito aspro si scrive οὐχ', 'οὐ': 'davanti a consonante si scrive οὐ', 'οὔ': 'in fine di frase si scrive οὔ', 'ἐξ': 'davanti a vocale si scrive ἐξ', 'ἐκ': 'davanti a consonante si scrive ἐκ' }[G.nfc(want)] || 'la forma dipende dalla parola che segue';
+}
+function issuesHtml(res) {
+  const iss = res.issues || [];
+  if (!iss.length) return '';
+  const lenient = S.settings.accents === 'lenient';
+  const pairs = (list) => list.slice(0, 3).map((x) => `${gr(x.got)} → ${gr(x.want)}`).join(', ');
+  const by = (k) => iss.filter((x) => x.kind === k);
+  let h = '';
+  if (by('iota').length) h += `<p class="accent-warn"><b>Iota sottoscritto:</b> ${pairs(by('iota'))}. Fa parte della desinenza, per questo conta sempre.</p>`;
+  if (by('form').length) h += `<p class="accent-warn"><b>Forma della parola:</b> ${pairs(by('form'))}: ${formRule(by('form')[0].want)}.${lenient && res.ok ? ' In modalità graduale non conta come errore.' : ''}</p>`;
+  if (by('accent').length) h += `<p class="accent-warn"><b>Accenti e spiriti:</b> ${pairs(by('accent'))}.${lenient && res.ok ? ' Non conta come errore, ma vale qualche punto in meno.' : ''}</p>`;
+  return h;
+}
 function showFeedback(res, gained) {
   const it = SES.cur.it;
   const topic = it.topic || (it.s && it.s.focus);
@@ -898,7 +861,7 @@ function showFeedback(res, gained) {
     if (res.note) body += `<p class="note">${esc(res.note)}</p>`;
     if (!res.near && !(it.s && it.s.tip)) body += `<p class="note">${esc(pick(C.COMFORT))}</p>`;
   }
-  if (res.accent && res.accent.length) body += `<p class="accent-warn">Segni diacritici: ${res.accent.slice(0, 3).map((a) => `${gr(a.got)} → ${gr(a.want)}`).join(', ')}${S.settings.accents === 'lenient' ? ' (non conta come errore)' : ''}</p>`;
+  body += issuesHtml(res);
   if (it.s && it.s.tip && !res.ok) body += `<p class="note">${esc(it.s.tip)}</p>`;
   const extra = [];
   if (topic && TOPIC[topic] && !res.ok) extra.push(`<button class="tool" data-act="theory" data-t="${topic}">${I.book}Teoria</button>`);
@@ -981,7 +944,7 @@ function wordPop(btn, tok) {
   const p = document.createElement('div');
   p.className = 'pop'; p.id = 'pop'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Analisi della parola');
   p.innerHTML = `<h4 lang="grc">${esc(a.f)}</h4><div class="lem">${gr(e.head || e.lemma)} — ${esc(e.m)}</div><p><b>${esc(a.d)}</b></p>
-    ${others.length ? `<p class="note">Altre analisi possibili:</p><ul>${others.map((o) => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}
+    ${others.length ? `<p class="note">Da sola può essere anche:</p><ul>${others.map((o) => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}
     <div class="tools"><button class="tool" data-act="speakText" data-w="${esc(a.f)}">${I.sound}Ascolta</button>${e.k !== 'i' && e.k !== 'art' ? `<button class="tool" data-act="paradigm" data-e="${E.LEX.indexOf(e)}">${I.table}Paradigma</button>` : ''}${S.settings.online ? `<a class="tool" href="https://it.wiktionary.org/wiki/${encodeURIComponent(e.lemma)}" target="_blank" rel="noopener noreferrer">${I.globe}Wikizionario</a>` : ''}</div>`;
   document.body.appendChild(p);
   const r = btn.getBoundingClientRect();
@@ -1017,8 +980,10 @@ function askText(label, value, cb) { modalCb = cb; showModal(`<div class="field"
 function analysisSheet(s) {
   const toks = tokensOf(s);
   const words = SN.render(toks, { words: true });
-  const rows = toks.map((t, i) => (t && !t.p && t.a ? `<tr><td class="gr" lang="grc">${esc(words[i])}</td><td>${gr(t.a.e.head || t.a.e.lemma)}<div class="note">${esc(t.a.e.m)}</div></td><td>${esc(t.a.d)}</td></tr>` : '')).join('');
-  openSheet('Analisi della frase', `<p class="greek-line small" lang="grc">${esc(s.gr)}</p><p>${esc(s.it[0])}</p><div class="tbl-wrap"><table class="para wordtable"><thead><tr><th>Parola</th><th>Lemma</th><th>Analisi</th></tr></thead><tbody>${rows}</tbody></table></div>`);
+  // nella frase conta una sola lettura; le altre della forma isolata si mostrano a parte
+  const alts = (t) => (E.isReady() ? uniq(E.analyze(t.a.f).filter((x) => x.e === t.a.e && x.f === t.a.f && x.key !== t.a.key && x.key !== 'lemma').map((x) => x.d)) : []);
+  const rows = toks.map((t, i) => { if (!t || t.p || !t.a) return ''; const al = alts(t); return `<tr><td class="gr" lang="grc">${esc(words[i])}</td><td>${gr(t.a.e.head || t.a.e.lemma)}<div class="note">${esc(t.a.e.m)}</div></td><td><b>${esc(t.a.d)}</b>${al.length ? `<div class="note">Da sola può essere anche: ${al.map(esc).join('; ')}</div>` : ''}</td></tr>`; }).join('');
+  openSheet('Analisi della frase', `<p class="greek-line small" lang="grc">${esc(s.gr)}</p><p>${esc(s.it[0])}</p><div class="tbl-wrap"><table class="para wordtable"><thead><tr><th>Parola</th><th>Lemma</th><th>Analisi nella frase</th></tr></thead><tbody>${rows}</tbody></table></div>`);
 }
 function methodSheet() { openSheet('Il metodo di costruzione', `${say('Sette passi per non perdersi in nessuna frase greca.', 'happy', 64)}<ol>${B.METHOD.map((m) => `<li><b>${esc(m.h)}</b><p>${esc(m.p)}</p></li>`).join('')}</ol>`); }
 
@@ -1360,7 +1325,7 @@ function viewMe() {
     <section class="sec"><p class="eyebrow">Studio</p><div class="card flush">
       <div class="setting"><div class="grow"><b>Posizione nel percorso</b><span>${esc(cu.unit.title)} · ${esc(cu.lesson.title)}</span></div><button class="btn small ghost" data-act="placement">Cambia</button></div>
       <div class="setting wrap"><div class="grow"><b>Obiettivo giornaliero</b><span>XP al giorno</span></div><div class="seg">${[30, 50, 80, 120].map((g) => `<button data-act="goal" data-v="${g}" aria-pressed="${S.goal === g}">${g}</button>`).join('')}</div></div>
-      ${sw('accents', 'Accenti facoltativi', 'Un errore di accento o di spirito viene segnalato ma non conta')}
+      ${sw('accents', 'Modalità graduale', 'Accenti, spiriti e forma di οὐ/ἐκ: segnalati ma non contano (qualche punto in meno). Lo iota sottoscritto conta sempre.')}
       ${sw('input', 'Rispondi scrivendo', 'Nelle traduzioni usa la tastiera al posto delle tessere')}
       ${sw('gen', 'Frasi generate', 'Oltre alle frasi verificate, frasi nuove create sul dispositivo')}</div></section>
     <section class="sec"><p class="eyebrow">Suoni e aspetto</p><div class="card flush">
@@ -1394,7 +1359,7 @@ function drawOnb() {
     h += say('Dove sei arrivato con il programma di classe? Apro le unità che hai già studiato; le altre si sbloccano facendo le lezioni.', 'think', 76) + placementList(onb.place, 'onbPlace') + `<button class="btn big block" data-act="onbNext">Avanti</button>`;
   } else {
     h += say('Ultime due scelte. Potrai cambiarle quando vuoi nel profilo.', 'happy', 76) + `<div class="card flush"><div class="setting wrap"><div class="grow"><b>Obiettivo giornaliero</b><span>Una lezione vale circa 60 XP</span></div><div class="seg">${[[30, 'Calmo'], [50, 'Normale'], [80, 'Serio'], [120, 'Intenso']].map(([g, l]) => `<button data-act="onbGoal" data-v="${g}" aria-pressed="${onb.goal === g}">${l}</button>`).join('')}</div></div>
-      <div class="setting"><div class="grow"><b>Accenti facoltativi</b><span>All’inizio è più sereno: gli errori d’accento vengono segnalati ma non contano.</span></div><label class="switch"><input type="checkbox" id="onbAcc" ${onb.accents === 'lenient' ? 'checked' : ''} aria-label="Accenti facoltativi"><i></i></label></div></div>
+      <div class="setting"><div class="grow"><b>Modalità graduale</b><span>All’inizio è più sereno: errori di accento e di spirito vengono segnalati ma non contano. Lo iota sottoscritto conta sempre.</span></div><label class="switch"><input type="checkbox" id="onbAcc" ${onb.accents === 'lenient' ? 'checked' : ''} aria-label="Modalità graduale"><i></i></label></div></div>
       <button class="btn big block" data-act="onbDone">Iniziamo il viaggio</button>`;
   }
   h += `${onb.step ? '<button class="btn ghost block" data-act="onbBack">Indietro</button>' : ''}</div>`;

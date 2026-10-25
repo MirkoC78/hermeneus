@@ -295,6 +295,17 @@ const RANKS = [
   { xp: 9000, name: 'Ἄρχων ἐπώνυμος', tr: 'arconte eponimo' },
 ];
 
-root.HERM_BANK = { BANK, METHOD, SENTENTIAE, RANKS };
+// letture che il contesto della frase non decide da solo: frase → { parola: chiave dell'analisi voluta }
+const READINGS = {
+  'Φυλάττετε τὰς θύρας.': { 'φυλάττετε': 'pres.imp.act.2p' }, // «Custodite le porte»: è un comando
+  'Ἀκούετε καὶ μανθάνετε.': { 'ἀκούετε': 'pres.imp.act.2p', 'μανθάνετε': 'pres.imp.act.2p' }, // esortazione
+  'Τὰ καλὰ ποιεῖτε.': { 'ποιεῖτε': 'pres.imp.act.2p' }, // «Fate il bene»
+  'Στρατιῶταί ἐστε καὶ τὴν χώραν φυλάττετε.': { 'φυλάττετε': 'pres.ind.act.2p' }, // coordinato a «siete»: constatazione
+  'Εἰ ταῦτα ἔλεγες, ἐπίστευον ἄν σοι.': { 'ἐπίστευον': 'impf.ind.act.1s' }, // «ti crederei»
+  'Οἱ γὰρ θεοὶ πάντα ἴσασιν.': { 'πάντα': 'a.pos.n.acc.p' }, // «tutto»: neutro plurale sostantivato
+  'Ὃ λέγεις ἀληθές ἐστιν.': { 'ὅ': 'p.n.acc.s' }, // oggetto di λέγεις dentro la relativa
+};
+
+root.HERM_BANK = { BANK, METHOD, SENTENTIAE, RANKS, READINGS };
 if (typeof module !== 'undefined') module.exports = root.HERM_BANK;
 })(typeof window !== 'undefined' ? window : globalThis);
